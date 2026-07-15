@@ -68,7 +68,9 @@ Explicitly out of scope, not started: business controllers/endpoints, authentica
 
 **Fix (2026-07-15):** added an explicit `Microsoft.EntityFrameworkCore.Design` `PackageReference` to `PettyCash.Api.csproj` (`PrivateAssets="all"`, same pattern as Infrastructure's existing reference). Root cause: Infrastructure's reference to the Design package doesn't flow to Api via `ProjectReference` because of that same `PrivateAssets="all"`, and `dotnet ef` needs the *startup* project specifically to carry it. No new package version (resolves against the existing central `9.0.4` pin). Pure tooling fix — no application code changed. Full detail: DECISIONS.md D-037.
 
-Awaiting client's re-run of `dotnet ef database update` to confirm the fix. Sprint 5.1 closes once that's confirmed.
+**Client verification round 4 (2026-07-15):** `dotnet ef database update` re-run confirmed — `InitialCreate` migration applied successfully. This was the last open item from round 3/D-037.
+
+**Sprint 5.1 — CLOSED (2026-07-15).** All verification steps confirmed by the client: `docker compose up -d`, `dotnet restore`, `dotnet build`, `dotnet test` (112 passing), `dotnet run`, `/health` Healthy, OpenAPI, and `dotnet ef database update` (InitialCreate applied). No open items remain for this sprint.
 
 ## Milestone 0.5 — SharePoint + Entra adapters (production)
 Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).
