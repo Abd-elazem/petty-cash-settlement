@@ -64,7 +64,11 @@ Explicitly out of scope, not started: business controllers/endpoints, authentica
 
 **Fix (2026-07-15):** added `database/docker-compose.yml` (Postgres 16, matching the `PettyCashDev` connection string exactly: db `pettycash_dev`, user/password `postgres`/`postgres`, port 5432, persistent named volume `pettycash_pgdata`, `pg_isready` healthcheck) and `database/README.md` (start/stop/remove instructions, plus the `dotnet ef database update` step needed on a fresh volume). Root `README.md` created (previously empty) with full local run instructions. No application code changed as part of this fix; the temporary diagnostic health endpoint added to investigate was removed once root cause was confirmed.
 
-Awaiting client's final re-verification: `docker compose up -d` in `database/`, apply migrations, then re-run `dotnet run` and confirm `/health` returns `Healthy`. Sprint 5.1 closes once that's confirmed.
+**Client verification round 3 (2026-07-15):** `docker compose up -d`, `dotnet restore`, `dotnet build`, `dotnet test` (112 passing), `dotnet run`, `/health` → Healthy, and OpenAPI all confirmed. One remaining issue: `dotnet ef database update --project src\PettyCash.Infrastructure --startup-project src\PettyCash.Api` failed — "Your startup project 'PettyCash.Api' doesn't reference Microsoft.EntityFrameworkCore.Design."
+
+**Fix (2026-07-15):** added an explicit `Microsoft.EntityFrameworkCore.Design` `PackageReference` to `PettyCash.Api.csproj` (`PrivateAssets="all"`, same pattern as Infrastructure's existing reference). Root cause: Infrastructure's reference to the Design package doesn't flow to Api via `ProjectReference` because of that same `PrivateAssets="all"`, and `dotnet ef` needs the *startup* project specifically to carry it. No new package version (resolves against the existing central `9.0.4` pin). Pure tooling fix — no application code changed. Full detail: DECISIONS.md D-037.
+
+Awaiting client's re-run of `dotnet ef database update` to confirm the fix. Sprint 5.1 closes once that's confirmed.
 
 ## Milestone 0.5 — SharePoint + Entra adapters (production)
 Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).

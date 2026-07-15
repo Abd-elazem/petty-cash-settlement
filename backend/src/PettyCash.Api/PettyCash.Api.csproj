@@ -24,6 +24,17 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Asp.Versioning.Http" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+    <!--
+      Design-time only (D-037). PettyCash.Infrastructure already references this package but with
+      PrivateAssets="all", which deliberately does NOT flow through ProjectReference to consuming
+      projects. dotnet ef requires the STARTUP project specifically to carry this reference -
+      Infrastructure having it is not sufficient. Same PrivateAssets/IncludeAssets pattern as
+      Infrastructure's reference: build/tooling only, never a runtime dependency of the Api project.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
