@@ -149,3 +149,40 @@ Status: Decided, applied. See TECH_STACK.md for the locked version list.
 - `Npgsql.EntityFrameworkCore.PostgreSQL 9.0.4` → `Microsoft.EntityFrameworkCore.Relational (>= 9.0.1 && < 10.0.0)` — a looser floor than this decision originally assumed ("Npgsql tracks EF Core 1:1" was true for the packages actually declared here, but Npgsql's own stated minimum for Relational specifically is 9.0.1, not 9.0.4).
 - `Microsoft.EntityFrameworkCore.Design 9.0.4` → `Microsoft.EntityFrameworkCore.Relational (>= 9.0.4)`.
 `Microsoft.EntityFrameworkCore.Relational` is never referenced directly by this solution — it's transitive-only. It had no explicit `PackageVersion` entry of its own in `Directory.Packages.props`, so with two different direct dependencies supplying two different floors, resolution wasn't unified across the graph. Fixed by adding an explicit `<PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.4" />` — completing central pinning for a package that was already implicated in the graph, not overriding or downgrading anything (9.0.4 was already the higher of the two floors).
+
+---
+
+## Sprint 5 — API Foundation
+
+**D-029 — `Microsoft.AspNetCore.OpenApi` (built-in), not Swashbuckle.**
+Reasoning: verified against current Microsoft documentation before choosing — Swashbuckle.AspNetCore stopped being the ASP.NET Core project-template default starting .NET 9, replaced by the first-party `Microsoft.AspNetCore.OpenApi` package (`AddOpenApi()`/`MapOpenApi()`). Using the current default rather than the previously-standard third-party package is what "current ASP.NET Core best practices" (the sprint's own wording) means concretely here.
+Status: Decided.
+
+**D-030 — `Asp.Versioning.Http` pinned at `8.1.0`, not the newer `10.0.0`.**
+Reasoning: verified via Microsoft's own .NET Blog before pinning — Asp.Versioning 10.0.0 is purpose-built for .NET 10's OpenAPI pipeline; 8.x is the line that targets .NET 8/9. Picking the newest available version without checking its target framework would have repeated exactly the kind of unverified-assumption mistake that cost three fix-rounds in Sprint 4.
+Consequence: per-API-version OpenAPI documents are NOT wired up (Asp.Versioning-to-built-in-OpenAPI integration wasn't shipped until the 10.0.0/.NET 10 pairing) — acceptable now since zero endpoints exist to document per-version yet.
+Status: Decided.
+
+**D-031 — `GlobalExceptionHandler` matches Domain exceptions by namespace string, not by importing `PettyCash.Domain.Exceptions`.**
+Reasoning: Sprint 5's explicit rule is Api references only Application and Infrastructure, never Domain directly. A `using PettyCash.Domain.Exceptions;` plus a `DomainException` pattern match would have compiled fine (Domain types are transitively visible through Application's own project reference) but would violate the rule's intent — Api code would be naming and depending on a Domain type. Caught during this sprint's own self-review (first draft had the import), fixed before considering the sprint done.
+Status: Decided.
+
+**D-032 — `TreatWarningsAsErrors` enabled on `PettyCash.Api.csproj` only, not solution-wide via `Directory.Build.props`.**
+Reasoning: Domain/Application/Infrastructure had just been verified as a fully passing, frozen build (112 tests) when this sprint started. Retroactively applying a stricter compiler setting solution-wide risks surfacing a latent warning-turned-error in already-approved code with no way for this session to see or fix it (no local build access). Scoping the setting to the new project honors "keep WarningsAsErrors enabled" for everything being written now without gambling with already-approved work. Revisit solution-wide once the client can confirm frozen projects have zero warnings.
+Status: Decided.
+
+**D-033 — No Serilog or other structured-logging library; `AddJsonConsole()` (built into `Microsoft.Extensions.Logging.Console`, ships with `Microsoft.NET.Sdk.Web`) used instead.**
+Reasoning: satisfies ARCHITECTURE.md §11's "structured (JSON)" logging requirement with zero new NuGet packages, given how much version-resolution friction Sprint 4 hit from package additions. Revisit if a real need for file/Seq/other sinks emerges — not a permanent architectural ceiling, just the minimal choice for a foundation sprint.
+Status: Decided.
+
+**D-034 — Health check verifies real Postgres connectivity (`AspNetCore.HealthChecks.NpgSql`) against the same `PettyCashDev` connection string Infrastructure uses, rather than a bare "process is alive" check.**
+Reasoning: a health check that only confirms the process is running gives false confidence in a system whose main external dependency (the database) is exactly what's most likely to fail independently of the process itself.
+Status: Decided.
+
+**D-035 — `DevelopmentCurrentUserContext` (in `PettyCash.Api/Development/`) registered for `ICurrentUserContext`, gated strictly to `builder.Environment.IsDevelopment()`, not a general-purpose fallback.**
+Reasoning: D-025 deliberately left `ICurrentUserContext` unregistered by `AddInfrastructure()` pending real authentication. That correctly surfaced as a `dotnet run` failure — ASP.NET Core's default `ValidateOnBuild`/`ValidateScopes` checks (which only run in Development) caught the missing registration at startup. The fix registers one fixed, hard-coded `CurrentUser` (Spender role) behind the existing `ICurrentUserContext` interface, only inside the same `IsDevelopment()` branch already used elsewhere in `Program.cs`. No Domain or Application change: the interface Application already depends on is unchanged, so this is a pure Infrastructure-adjacent/Api composition addition, not a contract change. Production remains correctly unresolvable for this interface until real auth (JWT/Entra, A-014) is registered — that gap should keep failing loudly outside Development rather than being silently papered over.
+Status: Decided.
+
+**D-036 — No Swagger UI is exposed at any route, including `/swagger`; `/openapi/v1.json` (built-in `Microsoft.AspNetCore.OpenApi`) is the only OpenAPI artifact this sprint. `/swagger` returning 404 is expected, not a defect.**
+Reasoning: reconfirms D-029 concretely. `Swashbuckle.AspNetCore` (which is what conventionally serves an interactive UI at `/swagger`) is not referenced anywhere in `PettyCash.Api.csproj`, and no UI middleware is registered in `Program.cs` — only `AddOpenApi()`/`MapOpenApi()`, which serves the raw JSON document and nothing else. There is no route for Swagger UI to 404 *from* in the sense of "almost working" — it was never mapped. A future sprint can add a UI (Scalar is the natural first-party-adjacent choice once there's an endpoint worth visualizing, per D-029's own note) but that is new scope, not a Sprint 5.1 gap.
+Status: Decided.

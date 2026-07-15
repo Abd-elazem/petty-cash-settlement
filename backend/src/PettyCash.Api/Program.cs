@@ -1,5 +1,7 @@
 using Asp.Versioning;
 using PettyCash.Api;
+using PettyCash.Api.Development;
+using PettyCash.Application.Abstractions;
 using PettyCash.Application.DependencyInjection;
 using PettyCash.Infrastructure.DependencyInjection;
 
@@ -23,6 +25,17 @@ if (builder.Environment.IsDevelopment())
 // itself — it only calls the two composition-root entry points each layer already exposes.
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// --- ICurrentUserContext is deliberately NOT registered by AddInfrastructure() (D-025) —
+// it needs real authentication, which doesn't exist yet. Registering a fixed development
+// stand-in here, gated strictly to the Development environment, closes the DI-validation
+// gap that was blocking `dotnet run` without pulling authentication into this sprint's
+// scope. Swapping this for a real JWT/Entra-backed implementation later is a registration
+// change in this file only — Application and Domain are untouched either way.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<ICurrentUserContext, DevelopmentCurrentUserContext>();
+}
 
 // --- Problem Details + global exception handling (Sprint 5 deliverable). Current ASP.NET Core
 // 8/9 best practice: IExceptionHandler + AddProblemDetails(), no third-party library needed.

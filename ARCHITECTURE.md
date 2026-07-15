@@ -297,4 +297,28 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 
 **Testing:** `PettyCash.Infrastructure.Tests` uses Testcontainers.PostgreSql — a real, disposable Postgres container, no mocks (ASSUMPTIONS.md A-017 notes the Docker prerequisite this implies). Covers round-trip/aggregate persistence (including VAT + odometer owned values), not-found returns null, spender-scoped queries, status-transition + Version-increment persistence, line removal, optimistic-concurrency conflict (two contexts racing on one row), seed-data verification, audit log round-trip, and post-migration table existence.
 
-**Known gap, not worked around:** this session has no command-execution access to the user's machine, so `dotnet ef migrations add InitialCreate` could not be run — the `Migrations/` folder is empty on disk. `PostgresContainerFixture` fails fast with the exact command to run rather than a confusing Postgres error if migrations are missing (ASSUMPTIONS.md A-018). Build/test verification is the client's step, same pattern as every prior milestone.
+**Known gap when this section was first written, now resolved:** migrations were hand-authored (no command-execution access to the user's machine, confirmed) rather than tool-generated — `InitialCreate` + Designer + ModelSnapshot exist under `Migrations/`. See D-023's migration-detail note and TODO.md's Sprint 4 fourth round for the full writeup.
+
+---
+
+## 14. Api Layer — Foundation (Sprint 5)
+
+**What's implemented:** `PettyCash.Api` project (`Microsoft.NET.Sdk.Web`), minimal-hosting-model `Program.cs`, `GlobalExceptionHandler`, `appsettings.json`/`appsettings.Development.json`, `Properties/launchSettings.json`. No controllers, no endpoints beyond `/health` — by explicit Sprint 5.1 scope.
+
+**Dependency direction verified:** `PettyCash.Api.csproj` references `PettyCash.Application` and `PettyCash.Infrastructure` only — no `PettyCash.Domain` project reference. `GlobalExceptionHandler` matches Domain exceptions by **namespace string** (`"PettyCash.Domain.Exceptions"`) rather than importing `PettyCash.Domain.Exceptions` and pattern-matching on `DomainException` directly — a `using` there would have technically compiled (Domain types are transitively visible via Application's own reference) but would violate the "never reference Domain directly" rule in substance, not just form. Caught and fixed during this sprint's own self-review, not shipped as the first draft.
+
+**Exception handling:** `IExceptionHandler` + `AddProblemDetails()` (current ASP.NET Core 8/9 pattern, no third-party library). Maps `NotFoundException→404`, `ForbiddenException→403`, `ValidationException→400` (with a FluentValidation-derived `errors` extension), `ConcurrencyException→409`, any Domain-namespace exception→400, everything else→500 (logged at Error — the mapped ones are expected client outcomes, not server faults, and aren't logged as errors).
+
+**OpenAPI:** built-in `Microsoft.AspNetCore.OpenApi` (`AddOpenApi()`/`MapOpenApi()`), not Swashbuckle — Microsoft's own .NET 9 templates stopped defaulting to Swashbuckle in favor of this. No Swagger UI wired up yet (just the OpenAPI JSON document, exposed only in Development) — a visualizer (Scalar or Swagger UI) is a cheap addition once there's an endpoint worth visualizing.
+
+**API versioning:** `Asp.Versioning.Http 8.1.0` (the .NET 9-targeted line, not 10.0.0 which targets .NET 10), configured with a URL-segment reader matching the `/api/v1` base path already documented in §9. Deliberately NOT wired to per-version OpenAPI documents: per Microsoft's own .NET Blog, that integration wasn't supported until .NET 10/Asp.Versioning 10 — attempting it on .NET 9 would mean hand-building glue Microsoft hadn't shipped, for no benefit while zero endpoints exist to version.
+
+**Logging:** structured JSON console (`AddJsonConsole()`), zero new packages — `Microsoft.Extensions.Logging.Console` ships with `Microsoft.NET.Sdk.Web`. Serilog was deliberately not added this sprint given how much package-version friction Sprint 4 hit; revisit if richer sinks (e.g. file, Seq) become a real need.
+
+**Health check:** `AspNetCore.HealthChecks.NpgSql 9.0.0` against the same `PettyCashDev` connection string Infrastructure uses — verifies real Postgres connectivity, not just "the process is running." Mapped at `/health`. Liveness/readiness split deliberately deferred (nothing yet distinguishes them).
+
+**`TreatWarningsAsErrors`:** enabled, but scoped to `PettyCash.Api.csproj` only, not a solution-wide `Directory.Build.props`. Domain/Application/Infrastructure had just passed a fully verified, frozen build when this sprint started; retroactively enabling this there risks breaking that approved state on a warning with no way to verify or fix it locally. Applying it to fresh code written carefully this sprint honors the standing "keep WarningsAsErrors enabled" instruction without gambling with already-approved work.
+
+**Not done, explicitly out of scope per Sprint 5.1:** business controllers/endpoints, authentication, SharePoint/Entra/Graph/Power Automate/D365FO integration.
+
+**DI composition gap closed:** `ICurrentUserContext` (deliberately unregistered by `AddInfrastructure()`, D-025) had nothing satisfying it, which failed ASP.NET Core's Development-only startup DI validation on `dotnet run`. `DevelopmentCurrentUserContext` (`PettyCash.Api/Development/`) now fills it — a single fixed placeholder identity, registered only under `IsDevelopment()` in `Program.cs`, with zero Domain or Application changes (D-035). This is a composition fix, not a Sprint 5.2 start: still no real authentication, no claims parsing, no business endpoints.

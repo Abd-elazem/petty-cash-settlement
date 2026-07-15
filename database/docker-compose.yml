@@ -1,0 +1,46 @@
+# database/docker-compose.yml
+#
+# Local development PostgreSQL instance for the Petty Cash Settlement System.
+#
+# This exists to satisfy the connection string already committed in
+# backend/src/PettyCash.Api/appsettings.json ("PettyCashDev"):
+#   Host=localhost;Port=5432;Database=pettycash_dev;Username=postgres;Password=postgres
+#
+# Root cause this fixes: `dotnet run`'s /health check correctly reported Unhealthy because
+# nothing was listening on 127.0.0.1:5432 — there was no docker-compose file, provisioning
+# script, or any other way to get a persistent Postgres server running for local `dotnet run`.
+# (Note: `dotnet test` passing before this file existed does NOT mean Postgres was already
+# available — PettyCash.Infrastructure.Tests uses Testcontainers, which spins up its own
+# throwaway container on a random port, unrelated to this persistent instance.)
+#
+# This is dev-only tooling. It has no bearing on production, which uses SharePoint as the
+# System of Record (ARCHITECTURE.md §2, TECH_STACK.md) — nothing here weakens or changes
+# the application's health check, which continues to check real Postgres connectivity.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pettycash-postgres-dev
+    restart: unless-stopped
+    environment:
+      # Must match backend/src/PettyCash.Api/appsettings.json's "PettyCashDev" connection string exactly.
+      POSTGRES_DB: pettycash_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Host:Container — 5432 on the host matches "Port=5432" in the connection string.
+      - "5432:5432"
+    volumes:
+      # Named volume so data survives `docker compose down` (but not `docker compose down -v`).
+      - pettycash_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pettycash_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  # Persistent named volume — survives container recreation/restarts.
+  # Only removed by an explicit `docker compose down -v` (see database/README.md).
+  pettycash_pgdata:
+    name: pettycash_pgdata
