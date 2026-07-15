@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>PettyCash.Infrastructure.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    No mocking library, by instruction: these tests run against a real, disposable
+    Postgres instance via Testcontainers, not a mocked DbContext. Requires Docker (or a
+    compatible runtime) available on the machine running `dotnet test` — see
+    ASSUMPTIONS.md A-017.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PettyCash.Infrastructure\PettyCash.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

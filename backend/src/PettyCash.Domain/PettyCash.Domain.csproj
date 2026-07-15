@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PettyCash.Domain</RootNamespace>
+    <!--
+      Domain layer must have ZERO package references beyond the BCL.
+      No EF Core, no Graph SDK, no HTTP clients, nothing infrastructure-flavored.
+      If a future change requires adding a package reference here, that is a signal
+      the logic belongs in Application or Infrastructure instead. See ARCHITECTURE.md §1.
+    -->
+  </PropertyGroup>
+
+</Project>

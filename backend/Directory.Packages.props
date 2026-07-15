@@ -1,0 +1,66 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!--
+      Also pins TRANSITIVE package versions solution-wide, not just the ones each project
+      references directly. This is what actually prevents the NU1605 class of bug from
+      recurring: without it, a future new dependency could still pull in a mismatched
+      transitive Microsoft.Extensions.*/EFCore version and we'd be back here. With it,
+      NuGet surfaces any such conflict at restore time against ONE source of truth (this
+      file) instead of against whatever version each project happened to pin.
+    -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="EF Core / Npgsql — must move together as one unit">
+    <!--
+      Npgsql.EntityFrameworkCore.PostgreSQL tracks Microsoft.EntityFrameworkCore's version
+      1:1 within the 9.x line. 9.0.4 is the version that triggered this fix (its transitive
+      minimum was above our old 9.0.0 pin) — aligning EVERYTHING in this group to 9.0.4,
+      not just bumping the two reported packages, is what requirement #7 (compatible with
+      .NET 9 AND Npgsql) actually means in practice: these three packages are not
+      independently versionable, they're a matched set.
+
+      Microsoft.EntityFrameworkCore.Relational is included here even though nothing in this
+      solution references it directly — it's a transitive-only dependency of BOTH
+      Npgsql.EntityFrameworkCore.PostgreSQL (whose actual floor is only >= 9.0.1, looser
+      than assumed above) and Microsoft.EntityFrameworkCore.Design (floor >= 9.0.4). Without
+      an explicit central pin here, those two different floors resolved inconsistently
+      across the graph instead of unifying on one version — CPM only pins transitive
+      packages it has an authoritative version FOR. This entry is that authoritative version,
+      not an override of anything.
+    -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.4" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="Microsoft.Extensions.* — aligned to the same 9.0.4 line as EF Core 9.0.4's own dependency graph">
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="Validation — independent ecosystem, no EF Core/Microsoft.Extensions dependency, versioned on its own schedule">
+    <PackageVersion Include="FluentValidation" Version="11.10.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.10.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test tooling — independent ecosystem; see explanation below for why these are NOT aligned to 9.0.4">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="3.10.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="API foundation — Sprint 5">
+    <!-- First-party, versioned in lockstep with the ASP.NET Core 9.0.x shared framework — kept at the same 9.0.4 patch as the rest of the pinned EF Core/Extensions line for one consistent story. -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
+    <!-- 8.1.0 deliberately, not the newer 10.0.0: Asp.Versioning 10.x targets .NET 10 specifically (its OpenAPI integration story is built for the .NET 10 pipeline). 8.1.0 is the .NET 9-targeted line. -->
+    <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

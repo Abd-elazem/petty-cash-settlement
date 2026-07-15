@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PettyCash.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Architecture rule (Sprint 4): this project may reference Application and Domain,
+    and infrastructure-facing packages only (EF Core, Npgsql, configuration binding).
+    It must NEVER be referenced BY Application or Domain — enforced structurally by
+    those projects having no ProjectReference back to this one. Nothing in here should
+    leak outward either: PettyCashDbContext is never returned from a public repository
+    method, and no type outside this project ever takes a PettyCashDbContext dependency.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PettyCash.Domain\PettyCash.Domain.csproj" />
+    <ProjectReference Include="..\PettyCash.Application\PettyCash.Application.csproj" />
+  </ItemGroup>
+
+</Project>

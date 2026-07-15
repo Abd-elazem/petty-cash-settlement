@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PettyCash.Application</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Architecture rule (enforced by convention here, see ARCHITECTURE.md §1):
+    This project may reference ONLY PettyCash.Domain plus lightweight, infrastructure-agnostic
+    libraries (FluentValidation for validators, Microsoft.Extensions.DependencyInjection.Abstractions
+    for DI registration — an abstractions-only package, not a hosting/runtime dependency).
+    It must NEVER reference ASP.NET Core, EF Core, Npgsql, Microsoft.Graph, or any Microsoft.SharePoint/
+    D365FO/Power Automate package. If a future change seems to need one of those here, the logic
+    belongs in Infrastructure instead.
+  -->
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PettyCash.Domain\PettyCash.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
