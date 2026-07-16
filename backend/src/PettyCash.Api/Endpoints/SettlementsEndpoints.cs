@@ -10,7 +10,7 @@ namespace PettyCash.Api.Endpoints;
 
 /// <summary>
 /// Minimal API endpoints for Settlement use cases (Vertical Slice 1: creation; Vertical
-/// Slice 2: add line).
+/// Slice 2: add line; Vertical Slice 3: submit).
 /// Minimal APIs, not MVC controllers, chosen to match Program.cs's existing
 /// minimal-hosting style — no Microsoft.AspNetCore.Mvc.Core / AddControllers() service
 /// registration exists anywhere in this project, and adding one for a single endpoint
@@ -47,6 +47,14 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/lines", AddLineAsync)
             .WithName("AddSettlementLine")
             .WithSummary("Adds a line to an existing Draft (or reopened) settlement.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{settlementId:guid}/submit", SubmitSettlementAsync)
+            .WithName("SubmitSettlement")
+            .WithSummary("Submits a Draft (or reopened) settlement for approval.")
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -115,6 +123,34 @@ public static class SettlementsEndpoints
         // 200, not 201 — AddLine mutates an existing Settlement aggregate; a SettlementLine
         // is not independently addressable (D-003), so there is no new resource URI to report
         // via Location. The updated parent Settlement is returned in the body instead.
+        return Results.Ok(dto);
+    }
+
+    private static async Task<IResult> SubmitSettlementAsync(
+        Guid settlementId,
+        ICommandHandler<SubmitSettlementCommand, SettlementDto> handler,
+        IValidator<SubmitSettlementCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new SubmitSettlementCommand(settlementId);
+
+        // Same explicit-validation pattern as the other two endpoints (D-040).
+        // SubmitSettlementCommandValidator only checks SettlementId != empty (route
+        // binding already guarantees a well-formed Guid), so this rarely fails — the
+        // real business rules ("must be Draft", "must have at least one line") live in
+        // Settlement.Submit() itself and throw Domain-namespace exceptions, mapped to 400
+        // by GlobalExceptionHandler's namespace-string match (D-031), same as AddLine's
+        // fuel/odometer rule.
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new PettyCash.Application.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200, not 201 — Submit transitions an existing Settlement's status; no new
+        // resource is created (same reasoning as AddLineAsync above, D-003/D-042 precedent).
         return Results.Ok(dto);
     }
 }

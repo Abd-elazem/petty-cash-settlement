@@ -96,6 +96,7 @@ Per `docs/TODO.md`, in order:
 6. ~~Sprint 5.1 — API Foundation~~ **Done, closed, re-verified**
 7. ~~Vertical Slice 1 — Create Draft Settlement~~ **Done, closed, verified (2026-07-16)**
 7b. ~~Vertical Slice 2 — Add Settlement Line~~ **Done, closed, verified (2026-07-16)**
+7c. **Vertical Slice 3 — Submit Settlement** — scope confirmed, not started
 8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
 9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
@@ -104,8 +105,8 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**Vertical Slice 3 — scope not yet formally defined; implementation not started.**
-Vertical Slices 1 and 2 are closed and verified. The client has directed that Vertical Slice 3 is next, but (unlike Slices 1/2) its scope has not been explicitly stated in this repo yet. The natural next command in the existing, frozen Application layer's `Settlements/Commands` set is `SubmitSettlementCommand` (Draft/Rejected → Submitted) — this is a reasonable inference, not a confirmed scope. **Confirm the exact scope with the client before implementing** rather than assuming `SubmitSettlementCommand` is correct. Do not begin implementation until scope is confirmed.
+**Vertical Slice 3 — Submit Settlement.** Scope confirmed by the client (2026-07-16). Implementation not started.
+`SubmitSettlementCommand` (Draft/Rejected → Submitted, existing frozen Application-layer command/handler/validator) is the use case to wire at the Api layer, following the same pattern as Vertical Slices 1/2 (Minimal API endpoint, explicit validation call, `PettyCash.Api.Tests` coverage, no Domain/Application changes expected).
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -200,6 +201,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-15 — Vertical Slice 1 (Create Draft Settlement) implemented and self-reviewed: §3/§4/§5/§6/§7 updated. Not yet client-verified; do not mark closed until §9's checklist is confirmed.
 - 2026-07-16 — Vertical Slice 1 closed and fully verified by the client (incl. post-implementation fixes D-041, CS0246/CS1061): §4/§6/§7 updated; last-updated header updated.
 - 2026-07-16 — Vertical Slice 2 (Add Settlement Line) closed and fully verified by the client (116 tests passing), incl. post-verification fix D-043 (missing file recreated and confirmed present): §4/§6/§7 updated; §7 set to Vertical Slice 3 with scope explicitly flagged as unconfirmed, not started; last-updated header updated.
+- 2026-07-16 — Client confirmed Vertical Slice 3 scope = Submit Settlement (`SubmitSettlementCommand`). §6/§7 updated to remove the "scope not yet formally defined" note and record the confirmed scope. Documentation-only change, no code touched.
 
 # Session Start Protocol
 
