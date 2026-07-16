@@ -2,8 +2,20 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch — it already exists and is documented.
 
-_Last updated: 2026-07-16 (Vertical Slice 2 fully verified and closed)._
+_Last updated: 2026-07-16 (Vertical Slice 3 fully verified and closed)._
+Vertical Slice Roadmap
 
+✓ VS1 - Create Draft Settlement
+✓ VS2 - Add Settlement Line
+✓ VS3 - Submit Settlement
+□ VS4 - Get Settlement
+□ VS5 - List Settlements
+□ VS6 - Update Settlement Line
+□ VS7 - Remove Settlement Line
+□ VS8 - Approve Settlement
+□ VS9 - Reject Settlement
+□ VS10 - Reopen Settlement
+□ VS11 - Record Journal Entry
 ---
 
 ## 1. Project Summary
@@ -35,6 +47,10 @@ Business source of truth: `docs/Developer-Guide.docx`. Do not treat this handoff
 ---
 
 ## 4. Current Verified State
+
+**Vertical Slice 3 — Submit Settlement: CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements/{settlementId}/submit` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs`), reusing the existing, unchanged `SubmitSettlementCommand`/Handler/Validator. Returns 200 with the updated `SettlementDto`. `SubmitSettlementEndpointTests.cs` (4 tests: happy path Draft+line→Submitted, no-lines→400, unknown ID→404, double-submit→400) was already present in the repository and already included in the verified 116-test count — no new production code or test file was required. Investigation confirmed by reading `SettlementsEndpoints.cs`, `SubmitSettlementCommand.cs`, `ApplicationServiceCollectionExtensions.cs`, and `GlobalExceptionHandler.cs`. See `CHANGELOG.md`'s Vertical Slice 3 entry for full detail.
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing).
 
 **Vertical Slice 2 — Add Settlement Line: CLOSED (2026-07-16). Fully verified by the client.**
 `POST /api/v1/settlements/{settlementId}/lines` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs` + `AddSettlementLineRequest.cs`), reusing the existing, unchanged `AddLineCommand`/Handler/Validator. Returns 200 with the updated `SettlementDto` (D-042). Post-verification defect found and fixed: `AddSettlementLineRequest.cs` reported created in an earlier turn but absent from disk — recreated and confirmed present via read-back before resubmitting (D-043). See `docs/DECISIONS.md` D-042/D-043 and `CHANGELOG.md`'s Vertical Slice 2 entry for full detail.
@@ -96,7 +112,8 @@ Per `docs/TODO.md`, in order:
 6. ~~Sprint 5.1 — API Foundation~~ **Done, closed, re-verified**
 7. ~~Vertical Slice 1 — Create Draft Settlement~~ **Done, closed, verified (2026-07-16)**
 7b. ~~Vertical Slice 2 — Add Settlement Line~~ **Done, closed, verified (2026-07-16)**
-7c. **Vertical Slice 3 — Submit Settlement** — scope confirmed, not started
+7c. ~~Vertical Slice 3 — Submit Settlement~~ **Done, closed, verified (2026-07-16)** — endpoint, handler, and tests were already present in the repository; no new code was required
+7d. **Vertical Slice 4** — scope not yet formally defined; awaiting client direction
 8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
 9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
@@ -105,8 +122,14 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**Vertical Slice 3 — Submit Settlement.** Scope confirmed by the client (2026-07-16). Implementation not started.
-`SubmitSettlementCommand` (Draft/Rejected → Submitted, existing frozen Application-layer command/handler/validator) is the use case to wire at the Api layer, following the same pattern as Vertical Slices 1/2 (Minimal API endpoint, explicit validation call, `PettyCash.Api.Tests` coverage, no Domain/Application changes expected).
+**Vertical Slice 4 — scope not yet formally defined; awaiting client direction.**
+
+Next logical candidates from `ARCHITECTURE.md §9` (in rough priority order, for client to confirm):
+- `GET /api/v1/settlements/{id}` — first read endpoint; already referenced by VS1's `Location` header
+- `GET /api/v1/settlements/mine` — spender list view
+- `POST /api/v1/settlements/{id}/lines/{lineId}` (Update line) or `DELETE` (Remove line)
+
+Do not start any of these without explicit client confirmation of scope.
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -202,6 +225,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-16 — Vertical Slice 1 closed and fully verified by the client (incl. post-implementation fixes D-041, CS0246/CS1061): §4/§6/§7 updated; last-updated header updated.
 - 2026-07-16 — Vertical Slice 2 (Add Settlement Line) closed and fully verified by the client (116 tests passing), incl. post-verification fix D-043 (missing file recreated and confirmed present): §4/§6/§7 updated; §7 set to Vertical Slice 3 with scope explicitly flagged as unconfirmed, not started; last-updated header updated.
 - 2026-07-16 — Client confirmed Vertical Slice 3 scope = Submit Settlement (`SubmitSettlementCommand`). §6/§7 updated to remove the "scope not yet formally defined" note and record the confirmed scope. Documentation-only change, no code touched.
+- 2026-07-16 — Vertical Slice 3 closed and fully verified by the client (116 tests passing, confirmed). Investigation showed all VS3 components (endpoint, handler registration, tests) were already present in the repository; no new code was required. §4/§6/§7 updated; §7 set to Vertical Slice 4 with scope explicitly flagged as not yet defined, awaiting client direction; last-updated header updated.
 
 # Session Start Protocol
 

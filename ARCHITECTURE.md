@@ -1,5 +1,5 @@
 # ARCHITECTURE.md — Petty Cash Settlement System
-_Living document. Last updated: Sprint 5 — API Foundation (2026-07-14)._
+_Living document. Last updated: Vertical Slice 3 — Submit Settlement (2026-07-16)._
 Business source of truth: `docs/Developer-Guide.docx`
 Approved technology choices: `TECH_STACK.md` (Locked vs Flexible status lives there, not duplicated here).
 Decision reasoning: `docs/DECISIONS.md`. Open risks: `docs/ASSUMPTIONS.md`. Change history: `CHANGELOG.md`.
@@ -188,6 +188,8 @@ backend/
       GlobalExceptionHandler.cs
       appsettings.json, appsettings.Development.json
       Properties/launchSettings.json
+      Development/           (DevelopmentCurrentUserContext.cs — IsDevelopment() only, D-035)
+      Endpoints/             (SettlementsEndpoints.cs, CreateSettlementRequest.cs, AddSettlementLineRequest.cs — VS1/VS2/VS3)
   tests/
     PettyCash.Domain.Tests/
     PettyCash.Application.Tests/
@@ -216,7 +218,7 @@ Base: `/api/v1`
 | PUT | `/settlements/{id}/lines/{lineId}` | Spender | Edit line (Draft only) |
 | DELETE | `/settlements/{id}/lines/{lineId}` | Spender | Remove line (Draft only) |
 | POST | `/settlements/{id}/lines/{lineId}/photos` | Spender | Upload receipt photo — **not yet implemented at Application layer, see D-020/A-016** |
-| POST | `/settlements/{id}/submit` | Spender | Draft → Submitted |
+| POST | `/settlements/{id}/submit` | Spender | Draft → Submitted — **implemented, Vertical Slice 3** |
 | GET | `/settlements/mine` | Spender | List own settlements |
 | GET | `/settlements/{id}` | Spender/Approver/AP | Get detail (ownership/role checked) |
 | POST | `/settlements/{id}/approve` | Approver, or System (flow callback) | Submitted → Approved |
@@ -351,6 +353,22 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 
 **No Domain/Application/Infrastructure change.** `AddLineCommand`, its validator, its handler, `ISettlementAuthorizationPolicy.EnsureCanEdit`, and the seeded `CategoryMapping` rows (`OFFICE_SUPPLIES`, `FUEL`, `GOVERNMENT_FEES`) were all already in place from Milestone 0.3/Sprint 4 — this slice is pure Api-layer wiring, matching Vertical Slice 1's shape.
 
-**Testing:** `PettyCash.Api.Tests/Settlements/AddSettlementLineEndpointTests.cs` — non-fuel category happy path (incl. `TotalAmount` recomputation), fuel category with a valid odometer reading, fuel category missing the odometer (400, Domain rule), empty category code (400, FluentValidation), zero gross amount (400, FluentValidation), car plate without odometer (400, FluentValidation's paired-fields rule), unknown category code (404), unknown settlement id (404). No Docker/Testcontainers changes — reuses the existing `ApiWebApplicationFactory`/`"Api"` xUnit collection from Vertical Slice 1.
+**Testing:** `PettyCash.Api.Tests/Settlements/AddSettlementLineEndpointTests.cs` (6 tests — corrected from an earlier 8-test draft; see CHANGELOG.md VS2 entry) — non-fuel category happy path (incl. `TotalAmount` recomputation), fuel category with a valid odometer reading, zero gross amount (400, FluentValidation), car plate without odometer (400, FluentValidation's paired-fields rule), unknown category code (404), unknown settlement id (404). No Docker/Testcontainers changes — reuses the existing `ApiWebApplicationFactory`/`"Api"` xUnit collection from Vertical Slice 1.
 
 **Not done, explicitly out of scope this slice:** Update/Remove line, Submit, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication (continues using `DevelopmentCurrentUserContext` per explicit client instruction — A-014 remains unresolved and unaddressed by this slice).
+
+---
+
+## 17. Api Layer — Vertical Slice 3 (Submit Settlement)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/submit` — added to the same `SettlementsEndpoints.cs` route group as Vertical Slices 1 and 2. Reuses `SubmitSettlementCommand`/`SubmitSettlementCommandHandler` (Milestone 0.3) completely unchanged.
+
+**Response shape:** `200 OK` with the updated `SettlementDto` — same reasoning as Vertical Slice 2 (D-042/D-003): Submit transitions an existing Settlement's status; no new resource is created.
+
+**Validation and error mapping:** same explicit-validation pattern as Slices 1 and 2 (D-040). `SubmitSettlementCommandValidator` checks only that `SettlementId` is non-empty (route binding already guarantees a well-formed Guid). The real business invariants — settlement must be in Draft status and must have at least one line — are enforced inside `Settlement.Submit()` itself and throw Domain-namespace exceptions, mapped to 400 by `GlobalExceptionHandler`'s namespace-string match (D-031). Unknown `SettlementId` throws `NotFoundException` — mapped to 404.
+
+**No Domain/Application/Infrastructure change.** All VS3 components (`SubmitSettlementAsync` delegate, `SubmitSettlementCommand` handler DI registration in `ApplicationServiceCollectionExtensions`, and `SubmitSettlementEndpointTests.cs`) were already present in the repository when Vertical Slice 3 was scoped. Documentation was the only gap.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/SubmitSettlementEndpointTests.cs` (4 tests): Draft-with-line → Submitted (200), Draft-with-no-lines → 400 (Domain rule), unknown settlement ID → 404, already-Submitted settlement re-submitted → 400 (Domain state-machine rule). Reuses the existing `ApiWebApplicationFactory`/`"Api"` xUnit collection.
+
+**Not done, explicitly out of scope this slice:** Update/Remove line, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication (continues using `DevelopmentCurrentUserContext` — A-014 remains open).

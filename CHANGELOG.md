@@ -2,6 +2,12 @@
 
 Human-readable summary of what changed, sprint by sprint. `docs/DECISIONS.md` is the authoritative record of *why*; this file is *what*, briefly.
 
+## Vertical Slice 3 — Submit Settlement — 2026-07-16
+- `POST /api/v1/settlements/{settlementId}/submit`: endpoint delegate `SubmitSettlementAsync` in `PettyCash.Api/Endpoints/SettlementsEndpoints.cs`, reusing the existing frozen `SubmitSettlementCommand`/Handler/Validator (Milestone 0.3, `ApplicationServiceCollectionExtensions.cs`). Returns `200 OK` with the updated `SettlementDto`. No Domain/Application/Infrastructure change.
+- `SubmitSettlementEndpointTests.cs` (4 tests: `Post_DraftWithLine_ReturnsSubmittedSettlement`, `Post_DraftWithNoLines_Returns400`, `Post_UnknownSettlementId_Returns404`, `Post_AlreadySubmittedSettlement_Returns400`) was already present in the repository and already counted in the 116-test total confirmed at Vertical Slice 2 close. No new test file was written.
+- Investigation note: all VS3 components were discovered to be fully implemented in the repository. Resume-protocol verification (reading `SettlementsEndpoints.cs`, `SubmitSettlementCommand.cs`, `ApplicationServiceCollectionExtensions.cs`, `GlobalExceptionHandler.cs`, and `SubmitSettlementEndpointTests.cs`) confirmed completeness before any code was written — consistent with the repository-is-source-of-truth rule.
+- **Verification status: CLOSED (2026-07-16). Fully verified by the client:** `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing). Test count unchanged from VS2 close — VS3 tests were already included.
+
 ## Vertical Slice 2 — Add Settlement Line — 2026-07-16
 - Added `POST /api/v1/settlements/{settlementId}/lines`: extended `PettyCash.Api/Endpoints/SettlementsEndpoints.cs` + new `AddSettlementLineRequest.cs`. Resolves `IValidator<AddLineCommand>` and `ICommandHandler<AddLineCommand, SettlementDto>` from DI — `AddLineCommand`/Handler/Validator (Milestone 0.3) are completely unchanged. `SettlementId` is bound from the route, not the request body.
 - Returns `200 OK` with the updated `SettlementDto` (not `201 Created` — D-042; a line isn't an independently addressable resource, D-003).

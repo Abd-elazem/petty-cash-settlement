@@ -99,6 +99,18 @@ Post-verification defect found and fixed: `AddSettlementLineRequest.cs` was miss
 Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing), `dotnet run --project src/PettyCash.Api` ✅.
 Not in scope this slice: Update/Remove line, Submit, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication.
 
+## Vertical Slice 3 — Submit Settlement
+Status: **CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements/{settlementId}/submit`, reusing the existing `SubmitSettlementCommand`/Handler/Validator unchanged. Returns 200 with the updated `SettlementDto`.
+Investigation at session start confirmed all VS3 components — endpoint delegate (`SubmitSettlementAsync` in `SettlementsEndpoints.cs`), handler DI registration (`ApplicationServiceCollectionExtensions.cs`), and `SubmitSettlementEndpointTests.cs` (4 tests) — were already present in the repository and already counted in the 116-test total verified at VS2 close. No new production code or test file was written; documentation was the only gap.
+Continues using `DevelopmentCurrentUserContext` — no JWT/Entra work this slice; A-014 remains open.
+No Domain/Application/Infrastructure change.
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing).
+
+## Vertical Slice 4
+Status: **Not started. Scope not yet formally defined — awaiting client direction.**
+Candidates (from `ARCHITECTURE.md §9`): `GET /settlements/{id}`, `GET /settlements/mine`, Update/Remove line endpoints. Client must confirm scope before implementation begins.
+
 ## Milestone 0.6 — API + minimal UI
 Scope: ASP.NET Core controllers, auth middleware, React shell (login + My Settlements + New Settlement form). Phase 1 functional slice.
 
