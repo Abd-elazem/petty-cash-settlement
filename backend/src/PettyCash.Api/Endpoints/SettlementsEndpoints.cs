@@ -9,7 +9,8 @@ using PettyCash.Application.Settlements.Commands;
 namespace PettyCash.Api.Endpoints;
 
 /// <summary>
-/// Minimal API endpoints for Settlement use cases (Vertical Slice 1: creation only).
+/// Minimal API endpoints for Settlement use cases (Vertical Slice 1: creation; Vertical
+/// Slice 2: add line).
 /// Minimal APIs, not MVC controllers, chosen to match Program.cs's existing
 /// minimal-hosting style — no Microsoft.AspNetCore.Mvc.Core / AddControllers() service
 /// registration exists anywhere in this project, and adding one for a single endpoint
@@ -39,6 +40,14 @@ public static class SettlementsEndpoints
             .WithName("CreateDraftSettlement")
             .WithSummary("Creates a new Draft settlement for the calling spender.")
             .Produces<SettlementDto>(StatusCodes.Status201Created)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{settlementId:guid}/lines", AddLineAsync)
+            .WithName("AddSettlementLine")
+            .WithSummary("Adds a line to an existing Draft (or reopened) settlement.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -74,5 +83,38 @@ public static class SettlementsEndpoints
         // to match that documented route so it becomes correct automatically once that
         // endpoint ships, instead of needing a follow-up fix here.
         return Results.Created($"/api/v1/settlements/{dto.RequestId}", dto);
+    }
+
+    private static async Task<IResult> AddLineAsync(
+        Guid settlementId,
+        AddSettlementLineRequest request,
+        ICommandHandler<AddLineCommand, SettlementDto> handler,
+        IValidator<AddLineCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new AddLineCommand(
+            settlementId,
+            request.CategoryCode,
+            request.GrossAmount,
+            request.IsVat,
+            request.Notes,
+            request.CarPlate,
+            request.OdometerKm);
+
+        // Same explicit-validation pattern as CreateDraftSettlementAsync (D-040) — Application
+        // registers AddLineCommandValidator but never invokes it itself; the endpoint is the
+        // caller responsible for running it before handing off to the handler.
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new PettyCash.Application.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200, not 201 — AddLine mutates an existing Settlement aggregate; a SettlementLine
+        // is not independently addressable (D-003), so there is no new resource URI to report
+        // via Location. The updated parent Settlement is returned in the body instead.
+        return Results.Ok(dto);
     }
 }

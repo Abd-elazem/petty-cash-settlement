@@ -89,6 +89,16 @@ Not in scope this slice: any other command-backed endpoint, `GET /settlements/{i
 ## Milestone 0.5 — SharePoint + Entra adapters (production)
 Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).
 
+## Vertical Slice 2 — Add Settlement Line
+Status: **CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements/{settlementId}/lines`, reusing the existing `AddLineCommand`/Handler/Validator unchanged. `SettlementId` bound from the route. Returns 200 with the updated `SettlementDto` (D-042 — not 201, since a line isn't independently addressable, D-003).
+Continues using `DevelopmentCurrentUserContext` per explicit client instruction — no JWT/Entra work this slice; A-014 remains open, unaddressed.
+No Domain/Application/Infrastructure change — pure Api-layer wiring reusing Milestone 0.3/Sprint 4 building blocks (including the seeded `FUEL`/`OFFICE_SUPPLIES`/`GOVERNMENT_FEES` category mappings).
+Added `PettyCash.Api.Tests/Settlements/AddSettlementLineEndpointTests.cs` (**6** tests — corrected from an earlier draft's "8"; see CHANGELOG.md). No new `.csproj` — `backend/PettyCash.sln`/`Directory.Packages.props` unchanged.
+Post-verification defect found and fixed: `AddSettlementLineRequest.cs` was missing from disk despite an earlier report that it had been created; recreated and confirmed present via read-back before resubmitting (D-043).
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing), `dotnet run --project src/PettyCash.Api` ✅.
+Not in scope this slice: Update/Remove line, Submit, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication.
+
 ## Milestone 0.6 — API + minimal UI
 Scope: ASP.NET Core controllers, auth middleware, React shell (login + My Settlements + New Settlement form). Phase 1 functional slice.
 

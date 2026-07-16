@@ -2,7 +2,7 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch — it already exists and is documented.
 
-_Last updated: 2026-07-16 (Vertical Slice 1 fully verified and closed)._
+_Last updated: 2026-07-16 (Vertical Slice 2 fully verified and closed)._
 
 ---
 
@@ -35,6 +35,10 @@ Business source of truth: `docs/Developer-Guide.docx`. Do not treat this handoff
 ---
 
 ## 4. Current Verified State
+
+**Vertical Slice 2 — Add Settlement Line: CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements/{settlementId}/lines` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs` + `AddSettlementLineRequest.cs`), reusing the existing, unchanged `AddLineCommand`/Handler/Validator. Returns 200 with the updated `SettlementDto` (D-042). Post-verification defect found and fixed: `AddSettlementLineRequest.cs` reported created in an earlier turn but absent from disk — recreated and confirmed present via read-back before resubmitting (D-043). See `docs/DECISIONS.md` D-042/D-043 and `CHANGELOG.md`'s Vertical Slice 2 entry for full detail.
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing), `dotnet run --project src/PettyCash.Api` ✅.
 
 **Vertical Slice 1 — Create Draft Settlement: CLOSED (2026-07-16). Fully verified by the client.**
 `POST /api/v1/settlements` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs`), reusing the existing, unchanged `CreateDraftSettlementCommand`/Handler. `PettyCash.Api.Tests` added (Testcontainers-backed, no mocks, 4 integration tests). Post-implementation fixes applied and verified: two missing `using` directives in `ApiWebApplicationFactory.cs` (CS0246/CS1061) and an `AddInfrastructure()` eager connection-string capture bug that prevented the Testcontainers override from taking effect (D-041). See `docs/DECISIONS.md` D-038/D-039/D-040/D-041 and `CHANGELOG.md`'s Vertical Slice 1 entry for full detail.
@@ -91,6 +95,7 @@ Per `docs/TODO.md`, in order:
 5. ~~Sprint 4 — Infrastructure (Postgres dev adapter)~~ Done
 6. ~~Sprint 5.1 — API Foundation~~ **Done, closed, re-verified**
 7. ~~Vertical Slice 1 — Create Draft Settlement~~ **Done, closed, verified (2026-07-16)**
+7b. ~~Vertical Slice 2 — Add Settlement Line~~ **Done, closed, verified (2026-07-16)**
 8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
 9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
@@ -99,8 +104,8 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**None in progress — awaiting client direction.**
-Vertical Slice 1 is closed and verified. The next items on the roadmap are Milestone 0.5 (SharePoint + Entra adapters) and Milestone 0.6 (remaining API endpoints + React UI shell). Do not begin either without an explicit client instruction — A-014 (identity approach) must be decided before Milestone 0.6 auth work starts (see §8).
+**Vertical Slice 3 — scope not yet formally defined; implementation not started.**
+Vertical Slices 1 and 2 are closed and verified. The client has directed that Vertical Slice 3 is next, but (unlike Slices 1/2) its scope has not been explicitly stated in this repo yet. The natural next command in the existing, frozen Application layer's `Settlements/Commands` set is `SubmitSettlementCommand` (Draft/Rejected → Submitted) — this is a reasonable inference, not a confirmed scope. **Confirm the exact scope with the client before implementing** rather than assuming `SubmitSettlementCommand` is correct. Do not begin implementation until scope is confirmed.
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -194,6 +199,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-15 — Sprint 5.1 closed and fully re-verified including D-037; document created.
 - 2026-07-15 — Vertical Slice 1 (Create Draft Settlement) implemented and self-reviewed: §3/§4/§5/§6/§7 updated. Not yet client-verified; do not mark closed until §9's checklist is confirmed.
 - 2026-07-16 — Vertical Slice 1 closed and fully verified by the client (incl. post-implementation fixes D-041, CS0246/CS1061): §4/§6/§7 updated; last-updated header updated.
+- 2026-07-16 — Vertical Slice 2 (Add Settlement Line) closed and fully verified by the client (116 tests passing), incl. post-verification fix D-043 (missing file recreated and confirmed present): §4/§6/§7 updated; §7 set to Vertical Slice 3 with scope explicitly flagged as unconfirmed, not started; last-updated header updated.
 
 # Session Start Protocol
 

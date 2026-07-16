@@ -219,3 +219,17 @@ Status: Decided.
 *Production behavior:* unchanged. Dev and production both read `ConnectionStrings:PettyCashDev` from `appsettings.json`/environment variables; only the timing of the read changed (lazy per-scope vs. eager once-at-startup). The `configuration` parameter on `AddInfrastructure(IServiceCollection, IConfiguration)` is now unused in the method body; its signature is intentionally left intact to avoid a breaking change at the two call sites (`Program.cs`, `PettyCash.Infrastructure.Tests`).
 *Alternatives considered:* replacing the DbContext service registration entirely inside `ApiWebApplicationFactory` (remove-then-re-add pattern sometimes used in WebApplicationFactory setups) — rejected as a heavier workaround that treats the symptom rather than the actual capture-timing defect in `AddInfrastructure()` itself.
 Status: Decided, applied, client-verified 2026-07-16.
+
+---
+
+## Vertical Slice 2 — Add Settlement Line
+
+**D-042 — `POST /api/v1/settlements/{settlementId}/lines` returns `200 OK` with the updated `SettlementDto`, not `201 Created`.**
+Reasoning: consistent with D-003 (a `SettlementLine` is not an independently addressable resource — it has no `GET /lines/{id}`, it only exists as part of its parent `Settlement`). `201 Created` implies a new addressable resource at a `Location`; there is none here, only a mutation of an existing one. `200 OK` with the full updated parent representation lets the client re-sync `TotalAmount`/`Lines` in one round trip, same as any other line-mutation endpoint will (Update/Remove line, Milestone 0.6).
+Status: Decided.
+
+**D-043 — Post-verification defect: `AddSettlementLineRequest.cs` reported as created but absent from disk; recreated and re-verified before resubmission.**
+*Root cause:* a `create_file`-equivalent tool call in an earlier turn reported success but the file was not actually persisted — confirmed by both a directory listing (file absent) and a direct read attempt (`ENOENT`). Not a namespace, folder, or `.csproj`-inclusion issue: `PettyCash.Api.csproj` has no explicit `Compile Include/Exclude`, so any `.cs` file physically present under the project directory is picked up by the SDK's default globbing.
+*Fix:* rewrote the file with identical content via a different file-write tool, then verified it was actually present with an explicit read-back and a fresh directory listing before telling the client it was fixed.
+*Process note:* going forward, a file-creation report is not treated as proof of a file's existence when a build depends on it — verify with a read-back before reporting a fix as done, not just after the write call returns success.
+Status: Decided, applied, client-verified 2026-07-16.

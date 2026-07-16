@@ -212,7 +212,7 @@ Base: `/api/v1`
 |---|---|---|---|
 | POST | `/settlements` | Spender | Create Draft — **implemented, Vertical Slice 1** |
 | PUT | `/settlements/{id}` | Spender | Update Draft header |
-| POST | `/settlements/{id}/lines` | Spender | Add line |
+| POST | `/settlements/{id}/lines` | Spender | Add line — **implemented, Vertical Slice 2** |
 | PUT | `/settlements/{id}/lines/{lineId}` | Spender | Edit line (Draft only) |
 | DELETE | `/settlements/{id}/lines/{lineId}` | Spender | Remove line (Draft only) |
 | POST | `/settlements/{id}/lines/{lineId}/photos` | Spender | Upload receipt photo — **not yet implemented at Application layer, see D-020/A-016** |
@@ -338,3 +338,19 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Testing:** `PettyCash.Api.Tests` — `ApiWebApplicationFactory` boots the real `Program`/host against a disposable Testcontainers Postgres instance (no mocks, matching `PettyCash.Infrastructure.Tests`'s convention) and applies the real `InitialCreate` migration before each test run. `CreateSettlementEndpointTests` covers: happy path (201, `Location` header, `SettlementDto` body incl. fields auto-filled from the seeded profile), empty purpose → 400, default/unset settlement date → 400, over-max-length purpose → 400.
 
 **Not done, explicitly out of scope this slice:** every other command-backed endpoint (Update/Add/Remove line, Submit, Approve, Reject, Reopen, RecordJournal), `GET /settlements/{id}` and `GET /settlements/mine` (queries already exist at Application layer, unwired at Api layer), authentication.
+
+---
+
+## 16. Api Layer — Vertical Slice 2 (Add Settlement Line)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/lines` — added to the same `SettlementsEndpoints.cs` route group as Vertical Slice 1, plus `AddSettlementLineRequest.cs`. Reuses `AddLineCommand`/`AddLineCommandHandler` (Milestone 0.3) completely unchanged. `SettlementId` is bound from the route (`{settlementId:guid}`), not the request body — there is no way for a client to post a body whose settlement id disagrees with the URL.
+
+**Response shape:** `200 OK` with the updated `SettlementDto`, not `201 Created` — unlike settlement creation, adding a line mutates an existing aggregate rather than creating a new independently-addressable resource (`SettlementLine` is explicitly not independently addressable, D-003), so there is no new resource URI to report via `Location`.
+
+**Validation and error mapping:** identical pattern to Vertical Slice 1 (D-040) — the endpoint explicitly calls `IValidator<AddLineCommand>.ValidateAsync`, throwing the existing `ValidationException` on failure. Two additional error paths are exercised for the first time by this slice, using machinery that already existed but was previously untested at the Api layer: `NotFoundException` for both an unknown `SettlementId` and an unknown/inactive `CategoryCode` (both → 404), and a Domain-namespace exception (`DomainValidationException`, e.g. a fuel category posted without an odometer reading) → 400 via `GlobalExceptionHandler`'s namespace-string match (D-031).
+
+**No Domain/Application/Infrastructure change.** `AddLineCommand`, its validator, its handler, `ISettlementAuthorizationPolicy.EnsureCanEdit`, and the seeded `CategoryMapping` rows (`OFFICE_SUPPLIES`, `FUEL`, `GOVERNMENT_FEES`) were all already in place from Milestone 0.3/Sprint 4 — this slice is pure Api-layer wiring, matching Vertical Slice 1's shape.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/AddSettlementLineEndpointTests.cs` — non-fuel category happy path (incl. `TotalAmount` recomputation), fuel category with a valid odometer reading, fuel category missing the odometer (400, Domain rule), empty category code (400, FluentValidation), zero gross amount (400, FluentValidation), car plate without odometer (400, FluentValidation's paired-fields rule), unknown category code (404), unknown settlement id (404). No Docker/Testcontainers changes — reuses the existing `ApiWebApplicationFactory`/`"Api"` xUnit collection from Vertical Slice 1.
+
+**Not done, explicitly out of scope this slice:** Update/Remove line, Submit, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication (continues using `DevelopmentCurrentUserContext` per explicit client instruction — A-014 remains unresolved and unaddressed by this slice).
