@@ -22,8 +22,14 @@ namespace PettyCash.Api.Development;
 /// </summary>
 public sealed class DevelopmentCurrentUserContext : ICurrentUserContext
 {
+    // UserId must match the seeded AppUserProfile row (AppUserProfileConfiguration.cs:
+    // "spender.demo") — CreateDraftSettlementCommandHandler resolves the profile by this
+    // exact id and throws NotFoundException otherwise. Originally "dev-local-user", which
+    // does not exist in seed data and made Create Draft Settlement 404 on every local
+    // call; found and fixed during Vertical Slice 1 self-review (Api-layer dev-fixture
+    // bug only, no Domain/Application change — see CHANGELOG/DECISIONS D-038).
     public CurrentUser Current { get; } = new(
-        UserId: "dev-local-user",
-        Email: "dev.local@canex.local",
+        UserId: "spender.demo",
+        Email: "spender.demo@canex.local",
         Roles: new[] { UserRole.Spender });
 }

@@ -2,7 +2,7 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch — it already exists and is documented.
 
-_Last updated: 2026-07-15 (Sprint 5.1 closure, D-037 re-verification)._
+_Last updated: 2026-07-16 (Vertical Slice 1 fully verified and closed)._
 
 ---
 
@@ -35,6 +35,10 @@ Business source of truth: `docs/Developer-Guide.docx`. Do not treat this handoff
 ---
 
 ## 4. Current Verified State
+
+**Vertical Slice 1 — Create Draft Settlement: CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs`), reusing the existing, unchanged `CreateDraftSettlementCommand`/Handler. `PettyCash.Api.Tests` added (Testcontainers-backed, no mocks, 4 integration tests). Post-implementation fixes applied and verified: two missing `using` directives in `ApiWebApplicationFactory.cs` (CS0246/CS1061) and an `AddInfrastructure()` eager connection-string capture bug that prevented the Testcontainers override from taking effect (D-041). See `docs/DECISIONS.md` D-038/D-039/D-040/D-041 and `CHANGELOG.md`'s Vertical Slice 1 entry for full detail.
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all tests passing, including 4 new `PettyCash.Api.Tests`).
 
 **Sprint 5.1 — API Foundation: CLOSED (2026-07-15), fully verified.**
 
@@ -70,7 +74,7 @@ A "frozen" layer may only be touched under the five conditions logged against ea
 | `PettyCash.Domain` | Frozen (except bug fixes) | Milestone 0.2 (2026-07-13) | One approved exception since freezing: D-021 (EF materialization support — parameterless ctor + settable `LineId`). |
 | `PettyCash.Application` | Frozen (except bug fixes) | Milestone 0.3 (2026-07-13) | No exceptions taken yet. |
 | `PettyCash.Infrastructure` (Postgres adapter) | Implementation complete, not formally "frozen" | — | Still expected to gain the SharePoint adapter (Milestone 0.5) as a sibling, not a replacement. |
-| `PettyCash.Api` (foundation) | Sprint 5.1 scope closed | 2026-07-15 | No business endpoints yet — those are new scope (Milestone 0.6), not a frozen-layer exception. |
+| `PettyCash.Api` (foundation) | Sprint 5.1 scope closed | 2026-07-15 | Vertical Slice 1 added the first business endpoint on top of this foundation (not a frozen-layer exception — Api was never frozen, only Domain/Application are). |
 
 If a future task appears to require changing Domain or Application behavior (not just adding to Infrastructure/Api), **stop and flag it explicitly** rather than assuming it's allowed.
 
@@ -86,15 +90,17 @@ Per `docs/TODO.md`, in order:
 4. ~~Milestone 0.3 — Application layer~~ Done, frozen
 5. ~~Sprint 4 — Infrastructure (Postgres dev adapter)~~ Done
 6. ~~Sprint 5.1 — API Foundation~~ **Done, closed, re-verified**
-7. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
-8. **Milestone 0.6 — API business endpoints + minimal React UI** — not started
-9. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
+7. ~~Vertical Slice 1 — Create Draft Settlement~~ **Done, closed, verified (2026-07-16)**
+8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
+9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
+10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
 
 ---
 
 ## 7. Current Task
 
-**None in progress.** Sprint 5.1 is closed. Awaiting client direction on whether to proceed to Milestone 0.5 (SharePoint + Entra) or Milestone 0.6 (business endpoints + UI) next.
+**None in progress — awaiting client direction.**
+Vertical Slice 1 is closed and verified. The next items on the roadmap are Milestone 0.5 (SharePoint + Entra adapters) and Milestone 0.6 (remaining API endpoints + React UI shell). Do not begin either without an explicit client instruction — A-014 (identity approach) must be decided before Milestone 0.6 auth work starts (see §8).
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -186,3 +192,17 @@ On completion of a vertical slice, update in the same turn:
 **Change log for this section itself** (append one line per update, do not delete history):
 
 - 2026-07-15 — Sprint 5.1 closed and fully re-verified including D-037; document created.
+- 2026-07-15 — Vertical Slice 1 (Create Draft Settlement) implemented and self-reviewed: §3/§4/§5/§6/§7 updated. Not yet client-verified; do not mark closed until §9's checklist is confirmed.
+- 2026-07-16 — Vertical Slice 1 closed and fully verified by the client (incl. post-implementation fixes D-041, CS0246/CS1061): §4/§6/§7 updated; last-updated header updated.
+
+# Session Start Protocol
+
+Every new AI session must:
+
+1. Read this file.
+2. Read PROJECT_RULES.md.
+3. Read any documents referenced by those files.
+4. Determine the current task.
+5. Do not rely on previous chat history.
+6. Implement only the current task.
+7. Stop after local verification is required.

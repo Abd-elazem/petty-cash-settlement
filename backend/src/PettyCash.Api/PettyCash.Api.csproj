@@ -23,6 +23,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Asp.Versioning.Http" />
+    <!-- Type-only usage: IValidator<T> injected into endpoints. Validators themselves are
+         registered by Application's AddApplication() (AddValidatorsFromAssemblyContaining). -->
+    <PackageReference Include="FluentValidation" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <!--
       Design-time only (D-037). PettyCash.Infrastructure already references this package but with

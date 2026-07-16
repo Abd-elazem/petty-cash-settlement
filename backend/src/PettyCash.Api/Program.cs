@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using PettyCash.Api;
 using PettyCash.Api.Development;
+using PettyCash.Api.Endpoints;
 using PettyCash.Application.Abstractions;
 using PettyCash.Application.DependencyInjection;
 using PettyCash.Infrastructure.DependencyInjection;
@@ -78,6 +79,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthChecks("/health");
+
+app.MapSettlementsEndpoints();
 
 app.Run();
 

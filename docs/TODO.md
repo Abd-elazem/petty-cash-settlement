@@ -72,6 +72,20 @@ Explicitly out of scope, not started: business controllers/endpoints, authentica
 
 **Sprint 5.1 — CLOSED (2026-07-15).** All verification steps confirmed by the client: `docker compose up -d`, `dotnet restore`, `dotnet build`, `dotnet test` (112 passing), `dotnet run`, `/health` Healthy, OpenAPI, and `dotnet ef database update` (InitialCreate applied). No open items remain for this sprint.
 
+## Vertical Slice 1 — Create Draft Settlement
+Status: **CLOSED (2026-07-16). Fully verified by the client.**
+`POST /api/v1/settlements` (Minimal API, D-039), reusing the existing `CreateDraftSettlementCommand`/Handler unchanged. Request DTO + explicit validation call (D-040) + OpenAPI metadata + `PettyCash.Api.Tests` (Testcontainers-backed, no mocks).
+Bug found and fixed during self-review: `DevelopmentCurrentUserContext`'s hard-coded dev UserId didn't match the seeded `AppUserProfile` row — see DECISIONS.md D-038. Api-layer fixture fix only, no Domain/Application change.
+Other decisions logged: D-039 (Minimal API, not MVC controller), D-040 (validation invoked explicitly by the endpoint, no generic filter yet), D-041 (DI eager-capture bug in `AddInfrastructure()`).
+`backend/PettyCash.sln` and `Directory.Packages.props` updated in the same change `PettyCash.Api.Tests` was created.
+Not in scope this slice: any other command-backed endpoint, `GET /settlements/{id}` (though its route is already documented in ARCHITECTURE.md §9 and the 201 `Location` header already points at it), authentication.
+
+**Post-implementation fixes (2026-07-16):**
+- CS0246/CS1061 compile errors in `ApiWebApplicationFactory.cs` — two missing `using` directives (`Xunit`, `Microsoft.EntityFrameworkCore`). No design change.
+- Testcontainers connection string not applied — `AddInfrastructure()` eager-capture bug (D-041). Fixed in `InfrastructureServiceCollectionExtensions.cs` (lazy resolution via service provider overload). No production behavior change.
+
+**Client verification (2026-07-16):** `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all tests passing, incl. 4 new `PettyCash.Api.Tests` integration tests). Slice closed.
+
 ## Milestone 0.5 — SharePoint + Entra adapters (production)
 Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).
 

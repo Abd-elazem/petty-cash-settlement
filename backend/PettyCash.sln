@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PettyCash.Application.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PettyCash.Infrastructure.Tests", "tests\PettyCash.Infrastructure.Tests\PettyCash.Infrastructure.Tests.csproj", "{D2E592C9-6109-4D76-B6A4-2073BCFB578F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PettyCash.Api.Tests", "tests\PettyCash.Api.Tests\PettyCash.Api.Tests.csproj", "{F516801E-9A7D-4D32-987A-03E73D8A0FD2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,10 @@ Global
 		{D2E592C9-6109-4D76-B6A4-2073BCFB578F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D2E592C9-6109-4D76-B6A4-2073BCFB578F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D2E592C9-6109-4D76-B6A4-2073BCFB578F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F516801E-9A7D-4D32-987A-03E73D8A0FD2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F516801E-9A7D-4D32-987A-03E73D8A0FD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F516801E-9A7D-4D32-987A-03E73D8A0FD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F516801E-9A7D-4D32-987A-03E73D8A0FD2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,5 +73,6 @@ Global
 		{4204B15E-DD5E-49D5-8DFF-E3439AAAD4AB} = {B0C3A0AB-BBC2-44BB-859C-EF02EAB1E48B}
 		{3E35F46D-7B88-4685-A0D0-07CCD70E3C6F} = {B0C3A0AB-BBC2-44BB-859C-EF02EAB1E48B}
 		{D2E592C9-6109-4D76-B6A4-2073BCFB578F} = {B0C3A0AB-BBC2-44BB-859C-EF02EAB1E48B}
+		{F516801E-9A7D-4D32-987A-03E73D8A0FD2} = {B0C3A0AB-BBC2-44BB-859C-EF02EAB1E48B}
 	EndGlobalSection
 EndGlobal

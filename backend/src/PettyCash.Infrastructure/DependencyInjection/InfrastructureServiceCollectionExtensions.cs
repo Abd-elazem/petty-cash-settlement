@@ -23,11 +23,25 @@ public static class InfrastructureServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("PettyCashDev")
-            ?? throw new InvalidOperationException(
-                "Missing connection string 'PettyCashDev'. Add it under ConnectionStrings in configuration.");
+        services.AddDbContext<PettyCashDbContext>((serviceProvider, options) =>
+        {
+            // Resolved lazily (per DbContext construction), not captured eagerly at
+            // registration time. AddInfrastructure(configuration) used to read the
+            // connection string once, here, into a closed-over local — which meant any
+            // configuration override applied after this call (e.g. PettyCash.Api.Tests'
+            // ApiWebApplicationFactory pointing ConnectionStrings:PettyCashDev at its
+            // Testcontainers instance) could never take effect, since the string was
+            // already baked into the AddDbContext delegate before the override was merged
+            // into IConfiguration. Re-reading IConfiguration from the DI container at
+            // options-configuration time fixes this without changing the config key,
+            // source, or production value in any way — dev/prod still read the exact same
+            // ConnectionStrings:PettyCashDev as before.
+            var connectionString = serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("PettyCashDev")
+                ?? throw new InvalidOperationException(
+                    "Missing connection string 'PettyCashDev'. Add it under ConnectionStrings in configuration.");
 
-        services.AddDbContext<PettyCashDbContext>(options => options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString);
+        });
 
         services.AddScoped<ISettlementRepository, PostgresSettlementRepository>();
         services.AddScoped<ICategoryMappingRepository, PostgresCategoryMappingRepository>();

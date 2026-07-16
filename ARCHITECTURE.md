@@ -210,7 +210,7 @@ Base: `/api/v1`
 
 | Method | Route | Role | Purpose |
 |---|---|---|---|
-| POST | `/settlements` | Spender | Create Draft |
+| POST | `/settlements` | Spender | Create Draft — **implemented, Vertical Slice 1** |
 | PUT | `/settlements/{id}` | Spender | Update Draft header |
 | POST | `/settlements/{id}/lines` | Spender | Add line |
 | PUT | `/settlements/{id}/lines/{lineId}` | Spender | Edit line (Draft only) |
@@ -322,3 +322,19 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Not done, explicitly out of scope per Sprint 5.1:** business controllers/endpoints, authentication, SharePoint/Entra/Graph/Power Automate/D365FO integration.
 
 **DI composition gap closed:** `ICurrentUserContext` (deliberately unregistered by `AddInfrastructure()`, D-025) had nothing satisfying it, which failed ASP.NET Core's Development-only startup DI validation on `dotnet run`. `DevelopmentCurrentUserContext` (`PettyCash.Api/Development/`) now fills it — a single fixed placeholder identity, registered only under `IsDevelopment()` in `Program.cs`, with zero Domain or Application changes (D-035). This is a composition fix, not a Sprint 5.2 start: still no real authentication, no claims parsing, no business endpoints.
+
+---
+
+## 15. Api Layer — Vertical Slice 1 (Create Draft Settlement)
+
+**What's implemented:** `POST /api/v1/settlements` — the first business endpoint, `PettyCash.Api/Endpoints/SettlementsEndpoints.cs` + `CreateSettlementRequest.cs`. Reuses `CreateDraftSettlementCommand`/`CreateDraftSettlementCommandHandler` (Milestone 0.3) completely unchanged; the endpoint resolves the command handler and `IValidator<CreateDraftSettlementCommand>` from the container (both already registered by `AddApplication()`), validates explicitly, and returns the resulting `SettlementDto` as-is — no separate Api response DTO (D-024's no-duplicate-DTO precedent).
+
+**Pattern chosen:** Minimal API (`MapPost` on an `IEndpointRouteBuilder` group), not an MVC controller — `PettyCash.Api` has no `AddControllers()` registration, and `Program.cs` has used the minimal hosting model exclusively since Sprint 5.1 (D-039). The versioned route group (`/api/v{version:apiVersion}/settlements`, using the `Asp.Versioning.Http` foundation from D-030) is built inside `SettlementsEndpoints.MapSettlementsEndpoints()` itself, so `Program.cs` stays a single `app.MapSettlementsEndpoints();` call.
+
+**Validation:** invoked explicitly by the endpoint delegate, not by a generic pipeline (D-040) — Application registers FluentValidation validators but no handler calls them; the Api layer is the intended caller. Failures throw the existing `PettyCash.Application.Exceptions.ValidationException`, reusing `GlobalExceptionHandler`'s already-built 400/`errors` mapping.
+
+**Bug fixed during this slice's self-review (D-038):** `DevelopmentCurrentUserContext`'s hard-coded dev identity (`"dev-local-user"`) didn't match the seeded `AppUserProfile` row (`"spender.demo"`, Sprint 4), which would have made this endpoint 404 on every local call — the two were never previously exercised together. Fixed in the Api-layer dev fixture only; no Domain/Application change.
+
+**Testing:** `PettyCash.Api.Tests` — `ApiWebApplicationFactory` boots the real `Program`/host against a disposable Testcontainers Postgres instance (no mocks, matching `PettyCash.Infrastructure.Tests`'s convention) and applies the real `InitialCreate` migration before each test run. `CreateSettlementEndpointTests` covers: happy path (201, `Location` header, `SettlementDto` body incl. fields auto-filled from the seeded profile), empty purpose → 400, default/unset settlement date → 400, over-max-length purpose → 400.
+
+**Not done, explicitly out of scope this slice:** every other command-backed endpoint (Update/Add/Remove line, Submit, Approve, Reject, Reopen, RecordJournal), `GET /settlements/{id}` and `GET /settlements/mine` (queries already exist at Application layer, unwired at Api layer), authentication.

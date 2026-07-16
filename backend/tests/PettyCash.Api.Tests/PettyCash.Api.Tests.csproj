@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>PettyCash.Api.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Boots the real Api host (WebApplicationFactory<Program>) against a real, disposable
+    Postgres container (Testcontainers) — same no-mocks approach TECH_STACK.md locks in
+    for PettyCash.Infrastructure.Tests, applied here at the endpoint/integration level.
+    Requires Docker on the machine running `dotnet test` — see ASSUMPTIONS.md A-017.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PettyCash.Api\PettyCash.Api.csproj" />
+  </ItemGroup>
+
+</Project>

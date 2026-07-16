@@ -61,6 +61,9 @@
     <!-- 8.1.0 deliberately, not the newer 10.0.0: Asp.Versioning 10.x targets .NET 10 specifically (its OpenAPI integration story is built for the .NET 10 pipeline). 8.1.0 is the .NET 9-targeted line. -->
     <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <!-- Vertical Slice 1: WebApplicationFactory<Program> for Api integration tests. Kept at the
+         same 9.0.4 patch as the rest of the pinned ASP.NET Core 9.0.x line for one consistent story. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.4" />
   </ItemGroup>
 
 </Project>

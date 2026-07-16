@@ -159,3 +159,19 @@ Follow `AI_HANDOFF.md` §11 exactly. In summary: read `AI_HANDOFF.md` first, the
 - Whenever two documents could be read as disagreeing (e.g., `AI_HANDOFF.md` says "not yet re-verified" but `CHANGELOG.md` says it was), resolve the conflict immediately by checking which is more recent/authoritative, correct the stale one, and note the correction — do not leave the contradiction for a future session to discover.
 - `CONTEXT.md` remains historical-only (superseded 2026-07-13) — never treat it as authoritative, and do not revive it as a live document.
 - Any new decision that revises a previously-documented one is appended as a dated correction under the original decision ID, preserving the original text (see D-023, D-028 pattern) — this file's own §6 states the same rule; it is restated here because it is the most commonly missed convention.
+
+
+##13. Rules Repository Is The Source of Truth
+
+Never rely on previous AI conversations.
+
+Always use:
+
+- Git
+- AI_HANDOFF.md
+- PROJECT_RULES.md
+- Repository documentation
+
+as the authoritative project state.
+
+If repository state conflicts with chat history, follow the repository.

@@ -192,3 +192,30 @@ Status: Decided.
 *Why not just remove `PrivateAssets="all"` from Infrastructure's existing reference instead:* that would leak the Design package (and its analyzer/build assets) into every project that references Infrastructure, including transitively into anything that later references Api — broader than necessary and contrary to Sprint 4's own stated intent for that reference (build/tooling only, not a leaking dependency). Adding the same narrowly-scoped reference directly to Api is the smaller, more correct fix: exactly one project gets it, exactly where the tool needs it.
 *Scope check:* build/analyzer/design-time package only — `PrivateAssets="all"` means it contributes nothing to `PettyCash.Api`'s runtime dependency graph or public API. No `Program.cs`, DI, controller, or any other application code changed. Pure tooling fix.
 Status: Decided, applied. **Not yet re-verified by the client** — `dotnet ef database update` needs to be re-run to confirm.
+
+---
+
+## Vertical Slice 1 — Create Draft Settlement
+
+**D-038 — Bug fix: `DevelopmentCurrentUserContext.Current.UserId` changed from `"dev-local-user"` to `"spender.demo"`.**
+*Root cause:* seed data (`AppUserProfileConfiguration`, Sprint 4) creates one `AppUserProfile` keyed `"spender.demo"`; `DevelopmentCurrentUserContext` (Sprint 5.1, D-035) independently hard-coded `"dev-local-user"`. Never cross-checked before because no endpoint existed to join them — `CreateDraftSettlementCommandHandler` is the first code path to call `IAppUserProfileRepository.GetByAppUserIdAsync(user.UserId)`. Unfixed, every local call throws `NotFoundException(AppUserProfile, "dev-local-user")`.
+*Fix:* changed the dev-only stub's id to match the seeded row (the seed row models a real admin-maintained profile per Guide §5.2; the stub should conform to it, not vice versa). No Domain/Application change.
+Status: Decided, applied. Found during Vertical Slice 1 self-review, before any client-side run.
+
+**D-039 — `POST /api/v1/settlements` is a Minimal API (`MapPost`), not an MVC controller.**
+Reasoning: no `AddControllers()` exists anywhere in `PettyCash.Api`; `Program.cs` has used the minimal hosting model exclusively since Sprint 5.1. Adding MVC infrastructure for one endpoint is unneeded surface — Minimal APIs already give typed DI parameters and OpenAPI metadata.
+Consequence: the versioned route group (`/api/v{version:apiVersion}/settlements`) is built inside `SettlementsEndpoints.MapSettlementsEndpoints()` itself, keeping `Program.cs`'s call site a single line.
+Alternatives: MVC controllers — deferred on the same grounds as D-017/D-033; revisit if endpoint count/complexity later justifies it.
+Status: Decided.
+
+**D-040 — Validation is invoked explicitly in the endpoint delegate (`IValidator<T>.ValidateAsync`), not via a generic pipeline/filter.**
+Reasoning: `Application.Tests/Validators/CommandValidatorTests.cs` confirms validators are registered but never invoked by handlers — validation-before-handling is the caller's job by design, and Api is that caller. The endpoint validates and throws the existing `ValidationException`, reusing `GlobalExceptionHandler`'s 400/`errors` mapping rather than a second error shape.
+Alternatives: a generic `IEndpointFilter` — deferred until a second command-backed endpoint makes the duplication real rather than hypothetical.
+Status: Decided.
+
+**D-041 — `AddInfrastructure()` DbContext registration changed from eager connection-string capture to lazy resolution via the `IServiceProvider` overload of `AddDbContext`.**
+*Root cause:* the original registration captured the connection string into a local variable at `AddInfrastructure()` call time (`Program.cs` calls this during service registration) and closed over it in the `AddDbContext` options delegate. `WebApplicationFactory.ConfigureWebHost`/`ConfigureAppConfiguration` (used by `ApiWebApplicationFactory` in `PettyCash.Api.Tests`) runs *after* `Program.cs`'s service-registration phase — so any in-memory config override injected by the test factory was merged into `IConfiguration` too late to affect the already-captured string. All 4 new `PettyCash.Api.Tests` integration tests consequently hit `localhost:5432` (the local dev Postgres) instead of the isolated Testcontainers container.
+*Fix:* switched to the `AddDbContext<PettyCashDbContext>((IServiceProvider sp, DbContextOptionsBuilder options) => ...)` overload. The delegate now calls `sp.GetRequiredService<IConfiguration>().GetConnectionString("PettyCashDev")` at DbContext-construction time (per scope) rather than once at registration time, so it sees the fully-composed `IConfiguration` — including any test override — each time a DbContext is resolved.
+*Production behavior:* unchanged. Dev and production both read `ConnectionStrings:PettyCashDev` from `appsettings.json`/environment variables; only the timing of the read changed (lazy per-scope vs. eager once-at-startup). The `configuration` parameter on `AddInfrastructure(IServiceCollection, IConfiguration)` is now unused in the method body; its signature is intentionally left intact to avoid a breaking change at the two call sites (`Program.cs`, `PettyCash.Infrastructure.Tests`).
+*Alternatives considered:* replacing the DbContext service registration entirely inside `ApiWebApplicationFactory` (remove-then-re-add pattern sometimes used in WebApplicationFactory setups) — rejected as a heavier workaround that treats the symptom rather than the actual capture-timing defect in `AddInfrastructure()` itself.
+Status: Decided, applied, client-verified 2026-07-16.
