@@ -1,5 +1,5 @@
 # ARCHITECTURE.md — Petty Cash Settlement System
-_Living document. Last updated: Vertical Slices 4–7 — Employee Workflow batch (2026-07-17)._
+_Living document. Last updated: Vertical Slices 8–11 documentation synchronization (2026-07-17)._
 Business source of truth: `docs/Developer-Guide.docx`
 Approved technology choices: `TECH_STACK.md` (Locked vs Flexible status lives there, not duplicated here).
 Decision reasoning: `docs/DECISIONS.md`. Open risks: `docs/ASSUMPTIONS.md`. Change history: `CHANGELOG.md`.
@@ -189,7 +189,7 @@ backend/
       appsettings.json, appsettings.Development.json
       Properties/launchSettings.json
       Development/           (DevelopmentCurrentUserContext.cs — IsDevelopment() only, D-035)
-      Endpoints/             (SettlementsEndpoints.cs, CreateSettlementRequest.cs, AddSettlementLineRequest.cs — VS1/VS2/VS3)
+      Endpoints/             (SettlementsEndpoints.cs + request DTOs — VS1 through VS11)
   tests/
     PettyCash.Domain.Tests/
     PettyCash.Application.Tests/
@@ -221,10 +221,10 @@ Base: `/api/v1`
 | POST | `/settlements/{id}/submit` | Spender | Draft → Submitted — **implemented, Vertical Slice 3** |
 | GET | `/settlements/mine` | Spender | List own settlements — **implemented, Vertical Slice 5** |
 | GET | `/settlements/{id}` | Spender/Approver/AP | Get detail (ownership/role checked) — **implemented, Vertical Slice 4** |
-| POST | `/settlements/{id}/approve` | Approver, or System (flow callback) | Submitted → Approved |
-| POST | `/settlements/{id}/reject` | Approver, or System | Submitted → Rejected + comment |
-| POST | `/settlements/{id}/reopen` | Spender | Rejected → Draft, Version++ (D-014) |
-| POST | `/settlements/{id}/journal` | System only | Approved → Journalled, writes JournalBatchNumber |
+| POST | `/settlements/{id}/approve` | Approver, or System (flow callback) | Submitted → Approved — **implemented, Vertical Slice 8** |
+| POST | `/settlements/{id}/reject` | Approver, or System | Submitted → Rejected + comment — **implemented, Vertical Slice 9** |
+| POST | `/settlements/{id}/reopen` | Spender | Rejected → Draft, Version++ (D-014) — **implemented, Vertical Slice 10** |
+| POST | `/settlements/{id}/journal` | System only | Approved → Journalled, writes JournalBatchNumber — **implemented, Vertical Slice 11** |
 | GET | `/category-mappings` | Any authenticated | Populate line category dropdown |
 | CRUD | `/admin/category-mappings` | Finance Content Owner | Maintain mapping list |
 | CRUD | `/admin/users` | App Admin | Maintain spender profiles |
@@ -424,5 +424,53 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Error paths:** unknown settlement → 404 (`NotFoundException`); unknown line on a known settlement → 400 (`Settlement.RemoveLine()` throws a Domain-namespace exception, mapped to 400 by `GlobalExceptionHandler`'s namespace-string match, D-031).
 
 **Testing:** `PettyCash.Api.Tests/Settlements/RemoveSettlementLineEndpointTests.cs` (4 tests): only line removed → 200 with empty Lines and zero TotalAmount, one-of-two lines removed → 200 with correct remaining line and TotalAmount, unknown settlement → 404, unknown line on known settlement → 400. Reuses `ApiWebApplicationFactory`/`"Api"` xUnit collection.
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 22. Api Layer — Vertical Slice 8 (Approve Settlement)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/approve` — added to `SettlementsEndpoints.cs`. Reuses `ApproveSettlementCommandHandler` (Milestone 0.3) unchanged.
+
+**Authorization and behavior:** caller must be `UserRole.Approver` with matching `ApproverEmailSnapshot`, or `UserRole.System` (Power Automate callback path, D-006). Submitted → Approved only; invalid status transitions surface Domain-state errors mapped to 400.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/ApproveSettlementEndpointTests.cs` (5 tests): approver happy path, spender forbidden (403), wrong-state (400), unknown settlement (404), double-approve (400).
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 23. Api Layer — Vertical Slice 9 (Reject Settlement)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/reject` — added to `SettlementsEndpoints.cs` + `RejectSettlementRequest.cs`. Reuses `RejectSettlementCommandHandler` unchanged.
+
+**Validation and behavior:** mandatory rejection comment (validator and Domain-level enforcement), approver/system authorization model same as VS8, and status transition Submitted → Rejected (D-014).
+
+**Testing:** `PettyCash.Api.Tests/Settlements/RejectSettlementEndpointTests.cs` (6 tests): approver happy path, spender forbidden (403), empty/missing comment (400), wrong-state (400), unknown settlement (404).
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 24. Api Layer — Vertical Slice 10 (Reopen Settlement)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/reopen` — added to `SettlementsEndpoints.cs`. Reuses `ReopenSettlementCommandHandler` unchanged.
+
+**Behavior:** owner-only reopen, Rejected → Draft, `Version++`, and lines preserved (D-014).
+
+**Testing:** `PettyCash.Api.Tests/Settlements/ReopenSettlementEndpointTests.cs` (5 tests): reopen happy path, lines retained, wrong-state (400), unknown settlement (404), reopen then resubmit cycle.
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 25. Api Layer — Vertical Slice 11 (Record Journal Entry)
+
+**What's implemented:** `POST /api/v1/settlements/{settlementId}/journal` — added to `SettlementsEndpoints.cs` + `RecordJournalRequest.cs`. Reuses `RecordJournalCommandHandler` unchanged.
+
+**Authorization and behavior:** System-role only, Approved → Journalled transition, and idempotent retry semantics for same journal batch number (D-018); conflicting second batch number on an already-journalled settlement is rejected.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/RecordJournalEndpointTests.cs` (7 tests): system happy path, idempotent same-batch retry (200), conflicting batch (400), wrong-state (400), spender forbidden (403), validation failure (400), unknown settlement (404).
 
 **No Domain/Application/Infrastructure change.**

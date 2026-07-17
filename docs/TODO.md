@@ -86,7 +86,7 @@ Not in scope this slice: any other command-backed endpoint, `GET /settlements/{i
 
 **Client verification (2026-07-16):** `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all tests passing, incl. 4 new `PettyCash.Api.Tests` integration tests). Slice closed.
 
-## Milestone 0.5 — SharePoint + Entra adapters (production)
+## SharePoint + Entra adapters (production)
 Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).
 
 ## Vertical Slice 2 — Add Settlement Line
@@ -132,16 +132,19 @@ Status: **CLOSED (2026-07-17). Fully verified by the client.**
 Test file: `PettyCash.Api.Tests/Settlements/RemoveSettlementLineEndpointTests.cs` (4 tests: existing line removed → 200 with empty Lines + zero TotalAmount, one of two lines removed → 200 with correct remaining line, unknown settlement → 404, unknown line on known settlement → 400 — `Settlement.RemoveLine()` throws `DomainException`, mapped to 400 via namespace match D-031). Uses the shared `[Collection("Api")]` fixture.
 No Domain/Application/Infrastructure change.
 
-## Manager Workflow Batch — VS8 Approve / VS9 Reject / VS10 Reopen
-Status: **Not started. Next implementation batch.**
-- **VS8** — `POST /api/v1/settlements/{id}/approve`: wraps `ApproveSettlementCommand`/Handler (Milestone 0.3). Caller role: Approver or System (Power Automate callback). Returns 200 with updated `SettlementDto`.
+## Manager + Journal Workflow Batch — VS8 Approve / VS9 Reject / VS10 Reopen / VS11 Record Journal
+Status: **CLOSED (2026-07-17). Implemented, tested, and client-verified.**
+- **VS8** — `POST /api/v1/settlements/{id}/approve`: wraps `ApproveSettlementCommand`/Handler. Caller role: Approver or System (Power Automate callback). Returns 200 with updated `SettlementDto`.
 - **VS9** — `POST /api/v1/settlements/{id}/reject`: wraps `RejectSettlementCommand`/Handler. Body: rejection comment. Returns 200 with updated `SettlementDto`.
 - **VS10** — `POST /api/v1/settlements/{id}/reopen`: wraps `ReopenSettlementCommand`/Handler (Rejected → Draft, Version++). Returns 200 with updated `SettlementDto`.
-All three reuse frozen Application-layer handlers, follow the existing endpoint/validation/error-mapping conventions (D-039/D-040/D-031), and continue using `DevelopmentCurrentUserContext` — no auth changes this batch.
-Do not start until explicitly instructed.
+- **VS11** — `POST /api/v1/settlements/{id}/journal`: wraps `RecordJournalCommand`/Handler (Approved → Journalled, System role only). Returns 200 with updated `SettlementDto`.
+All four reuse frozen Application-layer handlers and existing endpoint/validation/error-mapping conventions (D-039/D-040/D-031/D-042). No Domain/Application/Infrastructure implementation changes were required during documentation synchronization.
 
-## Milestone 0.6 — API + minimal UI
-Scope: ASP.NET Core controllers, auth middleware, React shell (login + My Settlements + New Settlement form). Phase 1 functional slice.
+## Remaining implementation work
+Scope: production adapters and remaining app surface not yet implemented in the repository (SharePoint/Entra integration, photo upload flow, admin endpoints, auth integration, minimal React shell).
+
+## Documentation synchronization
+Status: **In progress / immediate focus.** Repository state is treated as canonical; documentation updates are prioritized to keep `AI_HANDOFF.md`, `CHANGELOG.md`, `docs/TODO.md`, and `ARCHITECTURE.md` aligned with VS1–VS11 verified state.
 
 ## Backlog (post-MVP / Guide "Future" phase)
 - Duplicate/anomaly line checks

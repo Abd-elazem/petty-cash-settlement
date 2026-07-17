@@ -2,6 +2,15 @@
 
 Human-readable summary of what changed, sprint by sprint. `docs/DECISIONS.md` is the authoritative record of *why*; this file is *what*, briefly.
 
+## Vertical Slices 8–11 — Approve / Reject / Reopen / Record Journal — 2026-07-17
+- Endpoints and tests for VS8–VS11 were found fully implemented in the repository and aligned with the existing architecture:
+  - **VS8** — `POST /api/v1/settlements/{settlementId}/approve` (`ApproveSettlementAsync`), reusing `ApproveSettlementCommandHandler`. Test file: `ApproveSettlementEndpointTests.cs` (5).
+  - **VS9** — `POST /api/v1/settlements/{settlementId}/reject` (`RejectSettlementAsync`), body `RejectSettlementRequest`, reusing `RejectSettlementCommandHandler`. Test file: `RejectSettlementEndpointTests.cs` (6).
+  - **VS10** — `POST /api/v1/settlements/{settlementId}/reopen` (`ReopenSettlementAsync`), reusing `ReopenSettlementCommandHandler`. Test file: `ReopenSettlementEndpointTests.cs` (5).
+  - **VS11** — `POST /api/v1/settlements/{settlementId}/journal` (`RecordJournalAsync`), body `RecordJournalRequest`, reusing `RecordJournalCommandHandler` (including idempotent same-batch retry behavior). Test file: `RecordJournalEndpointTests.cs` (7).
+- No Domain/Application/Infrastructure code changes were required for this synchronization; handlers/validators and endpoint wiring were already present.
+- Verification status: **CLOSED (2026-07-17). Implemented, tested, and client-verified.**
+
 ## Vertical Slices 4–7 — Get Settlement / List My Settlements / Update Line / Remove Line — 2026-07-16
 - All four endpoints were found fully implemented in the repository at session start (VS4–VS7 production code in `SettlementsEndpoints.cs` and request DTOs; all four test files in `PettyCash.Api.Tests/Settlements/`). Documentation was stale — did not yet record this work. Per PROJECT_RULES.md §15 (repository is source of truth), code accepted as-is; documentation updated to match.
 - **VS4** — `GET /api/v1/settlements/{settlementId}`: `GetSettlementByIdAsync` in `SettlementsEndpoints.cs`, reusing frozen `GetSettlementByIdQueryHandler`. Returns 200+`SettlementDto` or 404/403. `GetSettlementEndpointTests.cs` (3 tests).

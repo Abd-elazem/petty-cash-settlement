@@ -117,6 +117,16 @@ public static class SettlementsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // VS11: Power Automate callback after D365FO journal creation (Guide §6.2, D-006).
+        // System role only — EnsureCanRecordJournal enforces this.
+        group.MapPost("/{settlementId:guid}/journal", RecordJournalAsync)
+            .WithName("RecordJournal")
+            .WithSummary("Records the D365FO journal batch number written back by Power Automate (System role only). Approved \u2192 Journalled.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
 
@@ -374,6 +384,36 @@ public static class SettlementsEndpoints
         SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
 
         // 200 — Reopen transitions status and increments Version; no new resource (D-042/D-014).
+        return Results.Ok(dto);
+    }
+
+    // ── VS11: POST /settlements/{id}/journal ─────────────────────────────────
+
+    private static async Task<IResult> RecordJournalAsync(
+        Guid settlementId,
+        RecordJournalRequest request,
+        ICommandHandler<RecordJournalCommand, SettlementDto> handler,
+        IValidator<RecordJournalCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new RecordJournalCommand(settlementId, request.JournalBatchNumber);
+
+        // RecordJournalCommandValidator checks both SettlementId and JournalBatchNumber
+        // are non-empty (D-040). Authorization (System-role only) is enforced inside the
+        // handler via EnsureCanRecordJournal — maps to ForbiddenException → 403.
+        // Idempotency (D-018): same journal number on an already-Journalled settlement
+        // returns 200 without throwing; a different number on an already-Journalled
+        // settlement throws a Domain exception → 400 (D-031 namespace match).
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 — RecordJournal transitions Approved → Journalled and stores the batch
+        // number; no new resource is created (D-042).
         return Results.Ok(dto);
     }
 }

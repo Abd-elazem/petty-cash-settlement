@@ -2,7 +2,7 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch — it already exists and is documented.
 
-_Last updated: 2026-07-17 (VS4–7 verified by client; documentation closed out; VS8–10 set as next batch)._
+_Last updated: 2026-07-17 (repository synchronization: VS1–VS11 implemented, tested, and client-verified)._
 Vertical Slice Roadmap
 
 ✓ VS1 - Create Draft Settlement
@@ -12,10 +12,10 @@ Vertical Slice Roadmap
 ✓ VS5 - List My Settlements (verified 2026-07-17)
 ✓ VS6 - Update Settlement Line (verified 2026-07-17)
 ✓ VS7 - Remove Settlement Line (verified 2026-07-17)
-□ VS8 - Approve Settlement
-□ VS9 - Reject Settlement
-□ VS10 - Reopen Settlement
-□ VS11 - Record Journal Entry
+✓ VS8 - Approve Settlement (verified 2026-07-17)
+✓ VS9 - Reject Settlement (verified 2026-07-17)
+✓ VS10 - Reopen Settlement (verified 2026-07-17)
+✓ VS11 - Record Journal Entry (verified 2026-07-17)
 ---
 
 ## 1. Project Summary
@@ -47,6 +47,13 @@ Business source of truth: `docs/Developer-Guide.docx`. Do not treat this handoff
 ---
 
 ## 4. Current Verified State
+
+**Backend MVP through Vertical Slice 11: CLOSED (2026-07-17). Implemented, tested, and client-verified.**
+`SettlementsEndpoints.cs` includes VS1–VS11 endpoints (Create, Add Line, Submit, Get Detail, List Mine, Update Line, Remove Line, Approve, Reject, Reopen, Record Journal). All endpoint tests are present in `PettyCash.Api.Tests/Settlements` and aligned with the implemented routes and handlers. Verification status is client-confirmed for VS1–VS11.
+
+**Vertical Slices 8–11 — Manager + Journal Workflow batch: CLOSED (2026-07-17). Fully verified by the client.**
+`POST /api/v1/settlements/{settlementId}/approve` (VS8), `POST /api/v1/settlements/{settlementId}/reject` (VS9), `POST /api/v1/settlements/{settlementId}/reopen` (VS10), `POST /api/v1/settlements/{settlementId}/journal` (VS11) — all in `SettlementsEndpoints.cs`, all reusing frozen Application-layer command handlers. Test files: `ApproveSettlementEndpointTests.cs` (5), `RejectSettlementEndpointTests.cs` (6), `ReopenSettlementEndpointTests.cs` (5), `RecordJournalEndpointTests.cs` (7), all using the shared `[Collection("Api")]` fixture and identity overrides in `ApiWebApplicationFactory`.
+Client verification confirmed: implemented, tested, and verified on the client machine.
 
 **Vertical Slices 4–7 — Employee Workflow batch: CLOSED (2026-07-17). Fully verified by the client.**
 `GET /api/v1/settlements/{settlementId}` (VS4), `GET /api/v1/settlements/mine` (VS5), `PUT /api/v1/settlements/{settlementId}/lines/{lineId}` (VS6), `DELETE /api/v1/settlements/{settlementId}/lines/{lineId}` (VS7) — all in `SettlementsEndpoints.cs`, all reusing frozen Application-layer query/command handlers (Milestone 0.3). `UpdateSettlementLineRequest.cs` already on disk. Test files: `GetSettlementEndpointTests.cs` (3), `GetMySettlementsEndpointTests.cs` (3), `UpdateSettlementLineEndpointTests.cs` (6), `RemoveSettlementLineEndpointTests.cs` (4) — all using the shared `[Collection("Api")]` fixture. All code was found fully implemented in the repository at session start; documentation was the only gap. No Domain/Application/Infrastructure change.
@@ -82,10 +89,9 @@ Layers implemented and passing:
 - `PettyCash.Domain` — aggregate, value objects, state machine, domain events. 37 tests.
 - `PettyCash.Application` — 9 commands, 2 queries, interfaces, DTOs, authorization policy, validators. 93 combined tests (Domain+Application).
 - `PettyCash.Infrastructure` — Postgres dev adapter (repositories, EF configurations, migrations). Tested via Testcontainers, no mocks.
-- `PettyCash.Api` — minimal hosting, exception handling, versioning foundation, OpenAPI, health check. No business endpoints yet.
+- `PettyCash.Api` — minimal hosting, exception handling, versioning foundation, OpenAPI, health check, and business endpoints through VS11.
 - `database/docker-compose.yml` — local Postgres 16 matching `PettyCashDev` connection string.
-
-Total: 112 automated tests passing, confirmed on the client's machine (not just in an isolated session).
+Automated tests: client-verified passing status across the implemented backend scope (including VS1–VS11 endpoint coverage).
 
 ---
 
@@ -97,7 +103,7 @@ A "frozen" layer may only be touched under the five conditions logged against ea
 |---|---|---|---|
 | `PettyCash.Domain` | Frozen (except bug fixes) | Milestone 0.2 (2026-07-13) | One approved exception since freezing: D-021 (EF materialization support — parameterless ctor + settable `LineId`). |
 | `PettyCash.Application` | Frozen (except bug fixes) | Milestone 0.3 (2026-07-13) | No exceptions taken yet. |
-| `PettyCash.Infrastructure` (Postgres adapter) | Implementation complete, not formally "frozen" | — | Still expected to gain the SharePoint adapter (Milestone 0.5) as a sibling, not a replacement. |
+| `PettyCash.Infrastructure` (Postgres adapter) | Implementation complete, not formally "frozen" | — | Still expected to gain a production SharePoint adapter as a sibling, not a replacement. |
 | `PettyCash.Api` (foundation) | Sprint 5.1 scope closed | 2026-07-15 | Vertical Slice 1 added the first business endpoint on top of this foundation (not a frozen-layer exception — Api was never frozen, only Domain/Application are). |
 
 If a future task appears to require changing Domain or Application behavior (not just adding to Infrastructure/Api), **stop and flag it explicitly** rather than assuming it's allowed.
@@ -121,22 +127,18 @@ Per `docs/TODO.md`, in order:
 7e. ~~Vertical Slice 5 — List My Settlements~~ **Done, closed, verified (2026-07-17)**
 7f. ~~Vertical Slice 6 — Update Settlement Line~~ **Done, closed, verified (2026-07-17)**
 7g. ~~Vertical Slice 7 — Remove Settlement Line~~ **Done, closed, verified (2026-07-17)**
-7h. **Manager Workflow Batch (VS8 Approve / VS9 Reject / VS10 Reopen)** — next implementation batch, not yet started
-8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
-9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
+7h. ~~Manager + Journal Workflow Batch (VS8 Approve / VS9 Reject / VS10 Reopen / VS11 Record Journal)~~ **Done, closed, verified (2026-07-17)**
+8. SharePoint + Entra production adapters — not started
+9. Remaining API/UI work (photo upload flow, admin endpoints, auth integration, minimal React UI) — not started
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
 
 ---
 
 ## 7. Current Task
 
-**Manager Workflow Batch — VS8 / VS9 / VS10. Confirmed by client. Not yet started.**
+**Documentation synchronization (repository-state alignment): completed, awaiting local verification.**
 
-- **VS8** — `POST /api/v1/settlements/{settlementId}/approve`: wraps `ApproveSettlementCommand`/Handler (Milestone 0.3). Caller: Approver or System service account (D-006).
-- **VS9** — `POST /api/v1/settlements/{settlementId}/reject`: wraps `RejectSettlementCommand`/Handler. Body: rejection comment.
-- **VS10** — `POST /api/v1/settlements/{settlementId}/reopen`: wraps `ReopenSettlementCommand`/Handler (Rejected → Draft, Version++).
-
-All three: same endpoint/validation/error-mapping conventions as the employee batch (D-039/D-040/D-031/D-042). Continue using `DevelopmentCurrentUserContext` — no auth changes this batch.
+Documentation-only synchronization across `AI_HANDOFF.md`, `CHANGELOG.md`, `docs/TODO.md`, and `ARCHITECTURE.md` has been applied so project docs reflect the repository-verified state (VS1–VS11 implemented, tested, and client-verified). No feature development is in progress.
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -147,9 +149,9 @@ _(Update this section the moment a new task starts — see §11.)_
 These need an explicit client decision before (or during) the milestone that depends on them — see `docs/ASSUMPTIONS.md` for full detail:
 
 - **A-005** — Single currency (EGP) for MVP, no multi-currency. Needs confirmation.
-- **A-006** — Budget / over-settlement validation — not specified by the Guide, needs business sign-off before Milestone 0.5/0.6 if in scope.
+- **A-006** — Budget / over-settlement validation — not specified by the Guide, needs business sign-off before production integration work if in scope.
 - **A-007** — Approver delegation (manager on leave, etc.) — same, needs business sign-off.
-- **A-014** — Identity: JWT now vs. Entra External ID immediately. `TECH_STACK.md` marks this **Flexible**, explicitly flagged for reconsideration now that the .NET stack is confirmed. Needed before Milestone 0.6 auth work starts.
+- **A-014** — Identity: JWT now vs. Entra External ID immediately. `TECH_STACK.md` marks this **Flexible**, explicitly flagged for reconsideration now that the .NET stack is confirmed. Needed before auth implementation work starts.
 - **A-016** — Whether `ReceiptPhoto` belongs inside the `Settlement` aggregate's consistency boundary. Blocks photo-upload command wiring (D-020).
 - **D-006** (Power Automate calls back into API rather than writing SharePoint directly) — logged as "Recommended," needs validation with the Phase 2 flow owner.
 
@@ -234,6 +236,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-16 — Client confirmed Vertical Slice 3 scope = Submit Settlement (`SubmitSettlementCommand`). §6/§7 updated to remove the "scope not yet formally defined" note and record the confirmed scope. Documentation-only change, no code touched.
 - 2026-07-16 — Vertical Slice 3 closed and fully verified by the client (116 tests passing, confirmed). Investigation showed all VS3 components (endpoint, handler registration, tests) were already present in the repository; no new code was required. §4/§6/§7 updated; §7 set to Vertical Slice 4 with scope explicitly flagged as not yet defined, awaiting client direction; last-updated header updated.
 - 2026-07-17 — VS4–7 (Employee Workflow batch) closed and fully verified by the client (all tests passing). All code was found fully implemented in the repository at session start; documentation was the only gap. §3 roadmap block, §4, §6, §7, §13 updated; §7 set to Manager Workflow Batch (VS8–10), confirmed by client, not yet started. Last-updated header updated.
+- 2026-07-17 — Documentation synchronization: repository state confirmed VS8–VS11 implemented, tested, and client-verified. Updated §3 roadmap block, §4 current verified state, §6 roadmap, and §7 current task to remove pending-language and align with code as source of truth.
 
 # Session Start Protocol
 

@@ -52,6 +52,13 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, I
         Email: "spender.demo@canex.local",
         Roles: new[] { UserRole.Spender });
 
+    // System identity for VS11 (RecordJournal). EnsureCanRecordJournal requires
+    // UserRole.System only — no email or ownership check applies.
+    internal static readonly CurrentUser SystemUser = new(
+        UserId: "system.flow",
+        Email: "system@canex.local",
+        Roles: new[] { UserRole.System });
+
     /// <summary>
     /// Returns an HttpClient whose requests will be handled with the given CurrentUser
     /// as the resolved ICurrentUserContext.Current, overriding whatever DevelopmentCurrentUserContext

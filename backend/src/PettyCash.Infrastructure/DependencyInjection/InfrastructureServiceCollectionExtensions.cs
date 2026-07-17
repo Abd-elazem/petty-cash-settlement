@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PettyCash.Application.Abstractions;
 using PettyCash.Infrastructure.Postgres;
 using PettyCash.Infrastructure.Postgres.Repositories;
+using PettyCash.Infrastructure.SharePoint.Configuration;
 
 namespace PettyCash.Infrastructure.DependencyInjection;
 
@@ -48,6 +49,15 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAppUserProfileRepository, PostgresAppUserProfileRepository>();
         services.AddScoped<IAuditLogger, PostgresAuditLogger>();
         services.AddSingleton<IVatConfiguration, ConfigurationVatConfiguration>();
+
+        // SharePoint foundation services are wired only when explicitly enabled.
+        // This keeps the default local/dev Postgres behavior unchanged while allowing
+        // production environments to register Graph/config/retry/error-mapping primitives
+        // before SharePoint repository implementations are introduced.
+        if (configuration.GetValue<bool>($"{SharePointFoundationOptions.SectionName}:Enabled"))
+        {
+            services.AddSharePointFoundation(configuration);
+        }
 
         return services;
     }
