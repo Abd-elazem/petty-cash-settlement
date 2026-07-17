@@ -2,6 +2,12 @@
 
 Human-readable summary of what changed, sprint by sprint. `docs/DECISIONS.md` is the authoritative record of *why*; this file is *what*, briefly.
 
+## Documentation synchronization — auth/authz + backend-aware health checks — 2026-07-17
+- Synchronized `AI_HANDOFF.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, and `docs/TODO.md` with the repository's implemented state after approved production hardening.
+- Resolved documentation drift on Api dependency direction: Api is documented as depending on Application and Infrastructure composition roots (while still keeping no direct Domain reference).
+- Added explicit architecture documentation for Entra/development authentication foundation, policy-based endpoint authorization, auth/authz API coverage tests, backend-aware `/health` selection, and Postgres/SharePoint repository contract parity tests.
+- Updated roadmap/todo language to mark documentation synchronization complete and keep remaining hardening as future work.
+
 ## Vertical Slices 8–11 — Approve / Reject / Reopen / Record Journal — 2026-07-17
 - Endpoints and tests for VS8–VS11 were found fully implemented in the repository and aligned with the existing architecture:
   - **VS8** — `POST /api/v1/settlements/{settlementId}/approve` (`ApproveSettlementAsync`), reusing `ApproveSettlementCommandHandler`. Test file: `ApproveSettlementEndpointTests.cs` (5).

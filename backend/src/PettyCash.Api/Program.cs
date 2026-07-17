@@ -4,6 +4,8 @@ using PettyCash.Api.DependencyInjection;
 using PettyCash.Api.Endpoints;
 using PettyCash.Application.DependencyInjection;
 using PettyCash.Infrastructure.DependencyInjection;
+using PettyCash.Infrastructure.SharePoint.Configuration;
+using PettyCash.Infrastructure.SharePoint.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,11 +54,20 @@ builder.Services.AddApiVersioning(options =>
 // (there are no endpoints to document per-version yet regardless).
 builder.Services.AddOpenApi();
 
-// --- Health check: real Postgres connectivity check, not just "the process is running."
-var connectionString = builder.Configuration.GetConnectionString("PettyCashDev")
-    ?? throw new InvalidOperationException("Missing connection string 'PettyCashDev'.");
-builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString, name: "postgres");
+// --- Health checks: use the same backend selection used by Infrastructure repository wiring.
+// If SharePoint is enabled, probe SharePoint/Graph; otherwise probe Postgres.
+var sharePointEnabled = builder.Configuration.GetValue<bool>($"{SharePointFoundationOptions.SectionName}:Enabled");
+var healthChecks = builder.Services.AddHealthChecks();
+if (sharePointEnabled)
+{
+    healthChecks.AddCheck<SharePointGraphHealthCheck>(name: "sharepoint-graph");
+}
+else
+{
+    var connectionString = builder.Configuration.GetConnectionString("PettyCashDev")
+        ?? throw new InvalidOperationException("Missing connection string 'PettyCashDev'.");
+    healthChecks.AddNpgSql(connectionString, name: "postgres");
+}
 
 var app = builder.Build();
 

@@ -1,5 +1,5 @@
 # ARCHITECTURE.md — Petty Cash Settlement System
-_Living document. Last updated: Vertical Slices 8–11 documentation synchronization (2026-07-17)._
+_Living document. Last updated: auth/authz + backend-aware health-check synchronization (2026-07-17)._
 Business source of truth: `docs/Developer-Guide.docx`
 Approved technology choices: `TECH_STACK.md` (Locked vs Flexible status lives there, not duplicated here).
 Decision reasoning: `docs/DECISIONS.md`. Open risks: `docs/ASSUMPTIONS.md`. Change history: `CHANGELOG.md`.
@@ -19,7 +19,8 @@ Infrastructure→ Adapters:
                 - SharePointSettlementRepository (production implementation — real System of Record)
                 - GraphPhotoStore, EntraIdentityProvider, FnOJournalConnector, AuditLogWriter
                 Depends on Application (implements its interfaces).
-Api           → REST controllers (ASP.NET Core), auth middleware, DTO mapping. Depends on Application only.
+Api           → REST endpoints (ASP.NET Core), auth middleware, DTO mapping, composition root.
+                Depends on Application and Infrastructure composition roots (no direct Domain reference).
 WebClient     → React SPA. Talks only to the REST API. Zero Microsoft SDK/token exposure (Guide §5.4).
 ```
 
@@ -31,7 +32,7 @@ Rule enforced: **Application layer never references `Microsoft.Graph`, `SharePoi
 
 - **Local/dev:** PostgreSQL, behind `ISettlementRepository`. Fast iteration, real SQL for local testing, no Microsoft tenant dependency during early development.
 - **Production:** SharePoint lists/library, per Guide §5.4–5.5 — this is an explicit business requirement, not a technical preference, and is not up for revision by engineering convenience.
-- Both are interchangeable implementations of the same interface. **No code outside Infrastructure may know which one is active.** Each adapter is directly verified against the Application interface contracts (round-trip, not-found, concurrency) as it's built; a single shared/parameterized suite run against both Postgres and SharePoint is deferred until the SharePoint adapter exists, to avoid baking Postgres-specific assumptions into what should be storage-agnostic tests (D-027).
+- Both are interchangeable implementations of the same interface. **No code outside Infrastructure may know which one is active.** Adapter parity is now enforced by a shared contract suite (`backend/tests/PettyCash.Infrastructure.Tests/SettlementRepositoryContractParityTests.cs`) that runs the same behavior checks against both Postgres and SharePoint repository implementations (round-trip, state transitions, not-found semantics, and concurrency conflict mapping).
 - Consequence for schema design: the logical schema below is written to be implementable in either a relational table or a SharePoint list without change to Domain/Application code.
 
 ---
@@ -386,8 +387,8 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Testing:** `PettyCash.Api.Tests/Settlements/GetSettlementEndpointTests.cs` (3 tests): existing owned settlement → 200 with full DTO, unknown settlement ID → 404, settlement with two lines → 200 with correct line count and TotalAmount. Reuses `ApiWebApplicationFactory`/`"Api"` xUnit collection.
 
 **No Domain/Application/Infrastructure change.**
-
 ---
+
 
 ## 19. Api Layer — Vertical Slice 5 (List My Settlements)
 
@@ -474,3 +475,30 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Testing:** `PettyCash.Api.Tests/Settlements/RecordJournalEndpointTests.cs` (7 tests): system happy path, idempotent same-batch retry (200), conflicting batch (400), wrong-state (400), spender forbidden (403), validation failure (400), unknown settlement (404).
 
 **No Domain/Application/Infrastructure change.**
+
+---
+
+## 26. Authentication, Authorization, and Backend-aware Health Checks (2026-07-17 state)
+
+**Authentication foundation:** API startup now wires authentication and authorization middleware (`UseAuthentication` + `UseAuthorization`) and central registration through `AddAuthenticationFoundation(...)` in `PettyCash.Api/DependencyInjection/AuthenticationServiceCollectionExtensions.cs`.
+
+- **Development mode:** `Authentication:Entra:Enabled=false` uses `DevelopmentAuthenticationHandler` and `DevelopmentCurrentUserContext` for local/test ergonomics.
+- **Entra-enabled mode:** JWT bearer validation is configured from `Authentication:Entra` options and maps identity/roles to `CurrentUser` via `ClaimsCurrentUserContext`.
+
+**Endpoint authorization:** all VS1–VS11 settlements routes require authentication and explicit policy mapping in `SettlementsEndpoints.cs`:
+- `role:Spender` for create/edit/submit/reopen/mine flows.
+- `settlements:approve-or-reject` for approve/reject (`Approver` or `System`).
+- `role:System` for journal callback.
+- `settlements:view` for detail-read access (`Spender`, `Approver`, `ApAccountant`, `AppAdmin`; `System` intentionally excluded to match Application business authorization).
+
+**Auth/authz verification:** API tests include:
+- full endpoint policy coverage (`AuthorizationCoverageEndpointTests.cs`) for anonymous (401), wrong-role (403), and required-role success paths across VS1–VS11;
+- development-handler behavior checks;
+- Entra-enabled behavior checks (anonymous 401, wrong role 403, valid role success);
+- business-rule parity checks proving endpoint authorization did not replace Domain/Application state validations.
+
+**Backend-aware health checks:** `/health` now reflects the active persistence backend using the same selector (`SharePoint:Enabled`) used by Infrastructure repository wiring:
+- SharePoint enabled → `sharepoint-graph` health probe (`SharePointGraphHealthCheck`) validates Graph connectivity against configured settlements site id.
+- SharePoint disabled → `postgres` health probe (`AddNpgSql`) validates configured `PettyCashDev` connectivity.
+
+This removes the previous false requirement for a Postgres connection when SharePoint is the active repository backend.

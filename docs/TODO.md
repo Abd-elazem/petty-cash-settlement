@@ -87,7 +87,8 @@ Not in scope this slice: any other command-backed endpoint, `GET /settlements/{i
 **Client verification (2026-07-16):** `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all tests passing, incl. 4 new `PettyCash.Api.Tests` integration tests). Slice closed.
 
 ## SharePoint + Entra adapters (production)
-Scope: real Infrastructure implementations against a sandbox tenant, run through the shared contract-test suite deferred at D-027 (written once both adapters exist).
+Status: **Partially complete.**
+Current repository state includes SharePoint repository implementation, Entra authentication foundation, and contract parity tests spanning Postgres and SharePoint persistence contracts. Remaining production work is integration hardening in real tenant environments (secrets/permissions, operational telemetry, rollout safeguards, and end-to-end flow verification).
 
 ## Vertical Slice 2 — Add Settlement Line
 Status: **CLOSED (2026-07-16). Fully verified by the client.**
@@ -141,10 +142,10 @@ Status: **CLOSED (2026-07-17). Implemented, tested, and client-verified.**
 All four reuse frozen Application-layer handlers and existing endpoint/validation/error-mapping conventions (D-039/D-040/D-031/D-042). No Domain/Application/Infrastructure implementation changes were required during documentation synchronization.
 
 ## Remaining implementation work
-Scope: production adapters and remaining app surface not yet implemented in the repository (SharePoint/Entra integration, photo upload flow, admin endpoints, auth integration, minimal React shell).
+Scope: remaining app surface and production hardening not yet implemented in the repository (photo upload flow, admin endpoints, frontend auth integration and minimal React shell completion, production rollout hardening for SharePoint/Entra operational paths).
 
 ## Documentation synchronization
-Status: **In progress / immediate focus.** Repository state is treated as canonical; documentation updates are prioritized to keep `AI_HANDOFF.md`, `CHANGELOG.md`, `docs/TODO.md`, and `ARCHITECTURE.md` aligned with VS1–VS11 verified state.
+Status: **CLOSED (2026-07-17).** `AI_HANDOFF.md`, `CHANGELOG.md`, `docs/TODO.md`, and `ARCHITECTURE.md` were synchronized with the approved repository state, including auth/authz, contract parity testing, and backend-aware health checks.
 
 ## Backlog (post-MVP / Guide "Future" phase)
 - Duplicate/anomaly line checks
