@@ -6,6 +6,7 @@ using PettyCash.Application.DTOs;
 using PettyCash.Application.Exceptions;
 using PettyCash.Application.Settlements.Commands;
 using PettyCash.Application.Settlements.Queries;
+using AppValidationException = PettyCash.Application.Exceptions.ValidationException;
 
 namespace PettyCash.Api.Endpoints;
 
@@ -88,6 +89,30 @@ public static class SettlementsEndpoints
         group.MapDelete("/{settlementId:guid}/lines/{lineId:guid}", RemoveLineAsync)
             .WithName("RemoveSettlementLine")
             .WithSummary("Removes a line from a Draft settlement.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Manager Workflow (VS8 / VS9 / VS10)
+
+        group.MapPost("/{settlementId:guid}/approve", ApproveSettlementAsync)
+            .WithName("ApproveSettlement")
+            .WithSummary("Approves a Submitted settlement (Approver or System role required).")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{settlementId:guid}/reject", RejectSettlementAsync)
+            .WithName("RejectSettlement")
+            .WithSummary("Rejects a Submitted settlement with a mandatory comment (Approver or System role required).")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{settlementId:guid}/reopen", ReopenSettlementAsync)
+            .WithName("ReopenSettlement")
+            .WithSummary("Reopens a Rejected settlement for editing (spender/owner only). Rejected to Draft, Version++.")
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -268,13 +293,87 @@ public static class SettlementsEndpoints
         var validationResult = await validator.ValidateAsync(command, cancellationToken);
         if (!validationResult.IsValid)
         {
-            throw new PettyCash.Application.Exceptions.ValidationException(
-                validationResult.Errors.Select(e => e.ErrorMessage));
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
         }
 
         SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
 
         // 200 with the updated SettlementDto (now without the removed line).
+        return Results.Ok(dto);
+    }
+
+    // ── VS8: POST /settlements/{id}/approve ────────────────────────────────────
+
+    private static async Task<IResult> ApproveSettlementAsync(
+        Guid settlementId,
+        ICommandHandler<ApproveSettlementCommand, SettlementDto> handler,
+        IValidator<ApproveSettlementCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new ApproveSettlementCommand(settlementId);
+
+        // ApproveSettlementCommandValidator only checks SettlementId non-empty — same
+        // reasoning as SubmitSettlement (D-040): the real business rule (must be Submitted)
+        // lives in Settlement.Approve() and maps to 400 via the D-031 namespace match.
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 — Approve transitions an existing Settlement's status; no new resource (D-042).
+        return Results.Ok(dto);
+    }
+
+    // ── VS9: POST /settlements/{id}/reject ─────────────────────────────────────
+
+    private static async Task<IResult> RejectSettlementAsync(
+        Guid settlementId,
+        RejectSettlementRequest request,
+        ICommandHandler<RejectSettlementCommand, SettlementDto> handler,
+        IValidator<RejectSettlementCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new RejectSettlementCommand(settlementId, request.Comment);
+
+        // RejectSettlementCommandValidator checks SettlementId non-empty AND Comment
+        // non-empty + MaximumLength(1000). Settlement.Reject() also checks the comment,
+        // but FluentValidation catches it first with the standard error shape (D-040).
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 — same reasoning as Approve (D-042).
+        return Results.Ok(dto);
+    }
+
+    // ── VS10: POST /settlements/{id}/reopen ──────────────────────────────────
+
+    private static async Task<IResult> ReopenSettlementAsync(
+        Guid settlementId,
+        ICommandHandler<ReopenSettlementCommand, SettlementDto> handler,
+        IValidator<ReopenSettlementCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new ReopenSettlementCommand(settlementId);
+
+        // ReopenSettlementCommandValidator only checks SettlementId non-empty (D-040).
+        // Domain enforces the Rejected-only precondition via EnsureStatus; maps to 400 (D-031).
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 — Reopen transitions status and increments Version; no new resource (D-042/D-014).
         return Results.Ok(dto);
     }
 }
