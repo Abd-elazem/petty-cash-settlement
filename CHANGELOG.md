@@ -2,6 +2,15 @@
 
 Human-readable summary of what changed, sprint by sprint. `docs/DECISIONS.md` is the authoritative record of *why*; this file is *what*, briefly.
 
+## Vertical Slices 4–7 — Get Settlement / List My Settlements / Update Line / Remove Line — 2026-07-16
+- All four endpoints were found fully implemented in the repository at session start (VS4–VS7 production code in `SettlementsEndpoints.cs` and request DTOs; all four test files in `PettyCash.Api.Tests/Settlements/`). Documentation was stale — did not yet record this work. Per PROJECT_RULES.md §15 (repository is source of truth), code accepted as-is; documentation updated to match.
+- **VS4** — `GET /api/v1/settlements/{settlementId}`: `GetSettlementByIdAsync` in `SettlementsEndpoints.cs`, reusing frozen `GetSettlementByIdQueryHandler`. Returns 200+`SettlementDto` or 404/403. `GetSettlementEndpointTests.cs` (3 tests).
+- **VS5** — `GET /api/v1/settlements/mine`: `GetMySettlementsAsync`, reusing frozen `GetMySettlementsQueryHandler`. Returns 200+`IReadOnlyList<SettlementSummaryDto>`. Route registered above `/{settlementId:guid}` to guarantee literal-segment wins over the Guid constraint. `GetMySettlementsEndpointTests.cs` (3 tests).
+- **VS6** — `PUT /api/v1/settlements/{settlementId}/lines/{lineId}`: `UpdateLineAsync`, reusing frozen `UpdateLineCommandHandler`. Body: `UpdateSettlementLineRequest`. Returns 200+`SettlementDto`. Explicit FluentValidation (D-040). `UpdateSettlementLineEndpointTests.cs` (6 tests).
+- **VS7** — `DELETE /api/v1/settlements/{settlementId}/lines/{lineId}`: `RemoveLineAsync`, reusing frozen `RemoveLineCommandHandler`. No request body. Returns 200+`SettlementDto`. Explicit FluentValidation for consistency (D-040). `RemoveSettlementLineEndpointTests.cs` (4 tests).
+- No Domain/Application/Infrastructure code changed. `UpdateSettlementLineRequest.cs` was already present on disk alongside the other endpoint files.
+- **Verification status: CLOSED (2026-07-17). Fully verified by the client:** `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all passing), `dotnet run` ✅. Test count confirmed by client — includes the 16 new tests across VS4–VS7 (3+3+6+4).
+
 ## Vertical Slice 3 — Submit Settlement — 2026-07-16
 - `POST /api/v1/settlements/{settlementId}/submit`: endpoint delegate `SubmitSettlementAsync` in `PettyCash.Api/Endpoints/SettlementsEndpoints.cs`, reusing the existing frozen `SubmitSettlementCommand`/Handler/Validator (Milestone 0.3, `ApplicationServiceCollectionExtensions.cs`). Returns `200 OK` with the updated `SettlementDto`. No Domain/Application/Infrastructure change.
 - `SubmitSettlementEndpointTests.cs` (4 tests: `Post_DraftWithLine_ReturnsSubmittedSettlement`, `Post_DraftWithNoLines_Returns400`, `Post_UnknownSettlementId_Returns404`, `Post_AlreadySubmittedSettlement_Returns400`) was already present in the repository and already counted in the 116-test total confirmed at Vertical Slice 2 close. No new test file was written.

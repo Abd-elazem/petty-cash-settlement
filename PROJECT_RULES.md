@@ -161,7 +161,7 @@ Follow `AI_HANDOFF.md` §11 exactly. In summary: read `AI_HANDOFF.md` first, the
 - Any new decision that revises a previously-documented one is appended as a dated correction under the original decision ID, preserving the original text (see D-023, D-028 pattern) — this file's own §6 states the same rule; it is restated here because it is the most commonly missed convention.
 
 
-##13. Rules Repository Is The Source of Truth
+##14. Rules Repository Is The Source of Truth
 
 Never rely on previous AI conversations.
 
@@ -175,3 +175,20 @@ Always use:
 as the authoritative project state.
 
 If repository state conflicts with chat history, follow the repository.
+
+
+##15  Repository Verification Rule
+
+Before starting any implementation:
+
+- Read AI_HANDOFF.md
+- Read PROJECT_RULES.md
+- Compare documentation with the repository.
+
+If documentation and repository disagree:
+
+The repository wins.
+
+Investigate.
+
+Do not implement new work until the inconsistency is resolved.

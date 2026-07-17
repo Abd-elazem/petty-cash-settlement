@@ -5,6 +5,7 @@ using PettyCash.Application.Common;
 using PettyCash.Application.DTOs;
 using PettyCash.Application.Exceptions;
 using PettyCash.Application.Settlements.Commands;
+using PettyCash.Application.Settlements.Queries;
 
 namespace PettyCash.Api.Endpoints;
 
@@ -57,6 +58,37 @@ public static class SettlementsEndpoints
             .WithSummary("Submits a Draft (or reopened) settlement for approval.")
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // VS5: registered before VS4 so "mine" is resolved as a literal path segment,
+        // not as a candidate for the {id:guid} constraint. The constraint would reject it
+        // anyway ("mine" is not a Guid), but the explicit ordering makes intent clear.
+        group.MapGet("/mine", GetMySettlementsAsync)
+            .WithName("GetMySettlements")
+            .WithSummary("Returns all settlements belonging to the calling spender.")
+            .Produces<IReadOnlyList<SettlementSummaryDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/{settlementId:guid}", GetSettlementByIdAsync)
+            .WithName("GetSettlementById")
+            .WithSummary("Returns the full detail of a single settlement (ownership/role checked).")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPut("/{settlementId:guid}/lines/{lineId:guid}", UpdateLineAsync)
+            .WithName("UpdateSettlementLine")
+            .WithSummary("Updates a line on a Draft settlement.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapDelete("/{settlementId:guid}/lines/{lineId:guid}", RemoveLineAsync)
+            .WithName("RemoveSettlementLine")
+            .WithSummary("Removes a line from a Draft settlement.")
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -151,6 +183,98 @@ public static class SettlementsEndpoints
 
         // 200, not 201 — Submit transitions an existing Settlement's status; no new
         // resource is created (same reasoning as AddLineAsync above, D-003/D-042 precedent).
+        return Results.Ok(dto);
+    }
+
+    // ── VS5: GET /settlements/mine ────────────────────────────────────────────────────
+
+    private static async Task<IResult> GetMySettlementsAsync(
+        IQueryHandler<GetMySettlementsQuery, IReadOnlyList<SettlementSummaryDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        // No per-query validator exists (and none is needed) — the query carries no
+        // client-supplied parameters; identity is always resolved server-side from
+        // ICurrentUserContext, consistent with D-016. The repository query is already
+        // self-scoped to the caller's UserId inside the handler.
+        IReadOnlyList<SettlementSummaryDto> summaries = await handler.HandleAsync(
+            new GetMySettlementsQuery(), cancellationToken);
+
+        return Results.Ok(summaries);
+    }
+
+    // ── VS4: GET /settlements/{id} ────────────────────────────────────────────────────
+
+    private static async Task<IResult> GetSettlementByIdAsync(
+        Guid settlementId,
+        IQueryHandler<GetSettlementByIdQuery, SettlementDto> handler,
+        CancellationToken cancellationToken)
+    {
+        // Same: no validator for a query with a route-bound Guid. The handler throws
+        // NotFoundException (→ 404) or ForbiddenException (→ 403) as needed.
+        SettlementDto dto = await handler.HandleAsync(
+            new GetSettlementByIdQuery(settlementId), cancellationToken);
+
+        return Results.Ok(dto);
+    }
+
+    // ── VS6: PUT /settlements/{id}/lines/{lineId} ─────────────────────────────────────
+
+    private static async Task<IResult> UpdateLineAsync(
+        Guid settlementId,
+        Guid lineId,
+        UpdateSettlementLineRequest request,
+        ICommandHandler<UpdateLineCommand, SettlementDto> handler,
+        IValidator<UpdateLineCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateLineCommand(
+            settlementId,
+            lineId,
+            request.CategoryCode,
+            request.GrossAmount,
+            request.IsVat,
+            request.Notes,
+            request.CarPlate,
+            request.OdometerKm);
+
+        // Same explicit-validation pattern as AddLine/Submit (D-040).
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new PettyCash.Application.Exceptions.ValidationException(
+                validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 with the updated SettlementDto — same reasoning as AddLine (D-042/D-003).
+        return Results.Ok(dto);
+    }
+
+    // ── VS7: DELETE /settlements/{id}/lines/{lineId} ──────────────────────────────────
+
+    private static async Task<IResult> RemoveLineAsync(
+        Guid settlementId,
+        Guid lineId,
+        ICommandHandler<RemoveLineCommand, SettlementDto> handler,
+        IValidator<RemoveLineCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new RemoveLineCommand(settlementId, lineId);
+
+        // RemoveLineCommandValidator only checks both Guids are non-empty — route binding
+        // already guarantees well-formed Guids via :guid constraint, so this will never
+        // fail in practice. Keeping explicit validation for consistency with D-040.
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new PettyCash.Application.Exceptions.ValidationException(
+                validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 with the updated SettlementDto (now without the removed line).
         return Results.Ok(dto);
     }
 }

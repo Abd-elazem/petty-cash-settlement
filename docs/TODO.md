@@ -107,9 +107,38 @@ Continues using `DevelopmentCurrentUserContext` — no JWT/Entra work this slice
 No Domain/Application/Infrastructure change.
 Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (116 passing).
 
-## Vertical Slice 4
-Status: **Not started. Scope not yet formally defined — awaiting client direction.**
-Candidates (from `ARCHITECTURE.md §9`): `GET /settlements/{id}`, `GET /settlements/mine`, Update/Remove line endpoints. Client must confirm scope before implementation begins.
+## Vertical Slice 4 — Get Settlement Detail
+Status: **CLOSED (2026-07-17). Fully verified by the client.**
+`GET /api/v1/settlements/{settlementId}` — wraps `GetSettlementByIdQueryHandler` (Milestone 0.3, unchanged). Returns `200 OK` with full `SettlementDto`; throws `NotFoundException` → 404 or `ForbiddenException` → 403 via `GlobalExceptionHandler`. No request body, no validator invocation (query with a route-bound Guid — nothing to validate that the `:guid` constraint doesn't already enforce).
+Test file: `PettyCash.Api.Tests/Settlements/GetSettlementEndpointTests.cs` (3 tests: existing-owned-settlement → 200 with full DTO, unknown ID → 404, settlement-with-lines → 200 with lines and correct TotalAmount). Uses the shared `[Collection("Api")]` fixture.
+`/mine` is registered above `/{settlementId:guid}` in the route group so the literal segment wins over the Guid constraint.
+No Domain/Application/Infrastructure change.
+
+## Vertical Slice 5 — List My Settlements
+Status: **CLOSED (2026-07-17). Fully verified by the client.**
+`GET /api/v1/settlements/mine` — wraps `GetMySettlementsQueryHandler` (Milestone 0.3, unchanged). Returns `200 OK` with `IReadOnlyList<SettlementSummaryDto>`. No request body; no per-query validator (identity is server-resolved from `ICurrentUserContext`, no client-supplied parameters — D-016). Route registered before `/{settlementId:guid}` so the literal segment `/mine` is resolved first.
+Test file: `PettyCash.Api.Tests/Settlements/GetMySettlementsEndpointTests.cs` (3 tests: 200 with non-null list, newly created settlement appears in list with correct summary fields, list deserialises cleanly to `SettlementSummaryDto` — no Lines property). Uses the shared `[Collection("Api")]` fixture.
+No Domain/Application/Infrastructure change.
+
+## Vertical Slice 6 — Update Settlement Line
+Status: **CLOSED (2026-07-17). Fully verified by the client.**
+`PUT /api/v1/settlements/{settlementId}/lines/{lineId}` — wraps `UpdateLineCommandHandler` (Milestone 0.3, unchanged). Both IDs bound from route. Body: `UpdateSettlementLineRequest` (CategoryCode, GrossAmount, IsVat, Notes, CarPlate, OdometerKm). Returns `200 OK` with updated `SettlementDto` (D-042/D-003 — line not independently addressable). Explicit validation via `IValidator<UpdateLineCommand>` (D-040).
+Test file: `PettyCash.Api.Tests/Settlements/UpdateSettlementLineEndpointTests.cs` (6 tests: valid non-fuel update → 200 with updated fields, category change to FUEL + odometer → 200, zero amount → 400, car-plate-without-odometer → 400, unknown settlement → 404, unknown category → 404). Uses the shared `[Collection("Api")]` fixture.
+No Domain/Application/Infrastructure change.
+
+## Vertical Slice 7 — Remove Settlement Line
+Status: **CLOSED (2026-07-17). Fully verified by the client.**
+`DELETE /api/v1/settlements/{settlementId}/lines/{lineId}` — wraps `RemoveLineCommandHandler` (Milestone 0.3, unchanged). Both IDs bound from route; no request body. Returns `200 OK` with updated `SettlementDto` (line removed, TotalAmount recomputed). Explicit validation via `IValidator<RemoveLineCommand>` (D-040 — validator only checks non-empty Guids, but kept for consistency).
+Test file: `PettyCash.Api.Tests/Settlements/RemoveSettlementLineEndpointTests.cs` (4 tests: existing line removed → 200 with empty Lines + zero TotalAmount, one of two lines removed → 200 with correct remaining line, unknown settlement → 404, unknown line on known settlement → 400 — `Settlement.RemoveLine()` throws `DomainException`, mapped to 400 via namespace match D-031). Uses the shared `[Collection("Api")]` fixture.
+No Domain/Application/Infrastructure change.
+
+## Manager Workflow Batch — VS8 Approve / VS9 Reject / VS10 Reopen
+Status: **Not started. Next implementation batch.**
+- **VS8** — `POST /api/v1/settlements/{id}/approve`: wraps `ApproveSettlementCommand`/Handler (Milestone 0.3). Caller role: Approver or System (Power Automate callback). Returns 200 with updated `SettlementDto`.
+- **VS9** — `POST /api/v1/settlements/{id}/reject`: wraps `RejectSettlementCommand`/Handler. Body: rejection comment. Returns 200 with updated `SettlementDto`.
+- **VS10** — `POST /api/v1/settlements/{id}/reopen`: wraps `ReopenSettlementCommand`/Handler (Rejected → Draft, Version++). Returns 200 with updated `SettlementDto`.
+All three reuse frozen Application-layer handlers, follow the existing endpoint/validation/error-mapping conventions (D-039/D-040/D-031), and continue using `DevelopmentCurrentUserContext` — no auth changes this batch.
+Do not start until explicitly instructed.
 
 ## Milestone 0.6 — API + minimal UI
 Scope: ASP.NET Core controllers, auth middleware, React shell (login + My Settlements + New Settlement form). Phase 1 functional slice.

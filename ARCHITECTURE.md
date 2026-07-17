@@ -1,5 +1,5 @@
 # ARCHITECTURE.md — Petty Cash Settlement System
-_Living document. Last updated: Vertical Slice 3 — Submit Settlement (2026-07-16)._
+_Living document. Last updated: Vertical Slices 4–7 — Employee Workflow batch (2026-07-17)._
 Business source of truth: `docs/Developer-Guide.docx`
 Approved technology choices: `TECH_STACK.md` (Locked vs Flexible status lives there, not duplicated here).
 Decision reasoning: `docs/DECISIONS.md`. Open risks: `docs/ASSUMPTIONS.md`. Change history: `CHANGELOG.md`.
@@ -215,12 +215,12 @@ Base: `/api/v1`
 | POST | `/settlements` | Spender | Create Draft — **implemented, Vertical Slice 1** |
 | PUT | `/settlements/{id}` | Spender | Update Draft header |
 | POST | `/settlements/{id}/lines` | Spender | Add line — **implemented, Vertical Slice 2** |
-| PUT | `/settlements/{id}/lines/{lineId}` | Spender | Edit line (Draft only) |
-| DELETE | `/settlements/{id}/lines/{lineId}` | Spender | Remove line (Draft only) |
+| PUT | `/settlements/{id}/lines/{lineId}` | Spender | Edit line (Draft only) — **implemented, Vertical Slice 6** |
+| DELETE | `/settlements/{id}/lines/{lineId}` | Spender | Remove line (Draft only) — **implemented, Vertical Slice 7** |
 | POST | `/settlements/{id}/lines/{lineId}/photos` | Spender | Upload receipt photo — **not yet implemented at Application layer, see D-020/A-016** |
 | POST | `/settlements/{id}/submit` | Spender | Draft → Submitted — **implemented, Vertical Slice 3** |
-| GET | `/settlements/mine` | Spender | List own settlements |
-| GET | `/settlements/{id}` | Spender/Approver/AP | Get detail (ownership/role checked) |
+| GET | `/settlements/mine` | Spender | List own settlements — **implemented, Vertical Slice 5** |
+| GET | `/settlements/{id}` | Spender/Approver/AP | Get detail (ownership/role checked) — **implemented, Vertical Slice 4** |
 | POST | `/settlements/{id}/approve` | Approver, or System (flow callback) | Submitted → Approved |
 | POST | `/settlements/{id}/reject` | Approver, or System | Submitted → Rejected + comment |
 | POST | `/settlements/{id}/reopen` | Spender | Rejected → Draft, Version++ (D-014) |
@@ -372,3 +372,57 @@ Handlers don't wrap Domain exceptions into Application ones — a Domain rule vi
 **Testing:** `PettyCash.Api.Tests/Settlements/SubmitSettlementEndpointTests.cs` (4 tests): Draft-with-line → Submitted (200), Draft-with-no-lines → 400 (Domain rule), unknown settlement ID → 404, already-Submitted settlement re-submitted → 400 (Domain state-machine rule). Reuses the existing `ApiWebApplicationFactory`/`"Api"` xUnit collection.
 
 **Not done, explicitly out of scope this slice:** Update/Remove line, Approve, Reject, Reopen, RecordJournal endpoints; `GET /settlements/{id}`/`GET /settlements/mine`; authentication (continues using `DevelopmentCurrentUserContext` — A-014 remains open).
+
+---
+
+## 18. Api Layer — Vertical Slice 4 (Get Settlement Detail)
+
+**What's implemented:** `GET /api/v1/settlements/{settlementId}` — added to `SettlementsEndpoints.cs`. Reuses `GetSettlementByIdQueryHandler` (Milestone 0.3) completely unchanged. Route parameter bound via `{settlementId:guid}`. No request body; no validator invocation (a Guid route constraint is sufficient — the handler throws `NotFoundException` or `ForbiddenException` for business-level rejections). Returns `200 OK` with the full `SettlementDto`.
+
+**Error mapping:** `NotFoundException` → 404; `ForbiddenException` → 403. Both via `GlobalExceptionHandler` (already built, Sprint 5.1). No new mapping needed.
+
+**Route ordering:** `/mine` (VS5) is registered above `/{settlementId:guid}` in the route group, so the literal segment is resolved first. The Guid constraint would reject `"mine"` anyway, but the explicit ordering makes intent clear.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/GetSettlementEndpointTests.cs` (3 tests): existing owned settlement → 200 with full DTO, unknown settlement ID → 404, settlement with two lines → 200 with correct line count and TotalAmount. Reuses `ApiWebApplicationFactory`/`"Api"` xUnit collection.
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 19. Api Layer — Vertical Slice 5 (List My Settlements)
+
+**What's implemented:** `GET /api/v1/settlements/mine` — added to `SettlementsEndpoints.cs`. Reuses `GetMySettlementsQueryHandler` (Milestone 0.3) completely unchanged. No request body; no validator (query carries no client-supplied parameters — identity is always resolved server-side from `ICurrentUserContext`, consistent with D-016). Returns `200 OK` with `IReadOnlyList<SettlementSummaryDto>`.
+
+**Route ordering:** registered above `/{settlementId:guid}` in the route group — see §18.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/GetMySettlementsEndpointTests.cs` (3 tests): endpoint returns 200 with a non-null list, a newly-created settlement appears in the list with correct summary fields (Purpose/Status/TotalAmount), and the response deserialises cleanly to `IReadOnlyList<SettlementSummaryDto>` (confirming the lightweight projection, not the full `SettlementDto` with Lines). Note: shared Testcontainers database across the `"Api"` collection; empty-list assertion is not safe and is deliberately avoided.
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 20. Api Layer — Vertical Slice 6 (Update Settlement Line)
+
+**What's implemented:** `PUT /api/v1/settlements/{settlementId}/lines/{lineId}` — added to `SettlementsEndpoints.cs` + `UpdateSettlementLineRequest.cs`. Reuses `UpdateLineCommandHandler` (Milestone 0.3) completely unchanged. Both IDs bound from route; request body carries the updated field values (CategoryCode, GrossAmount, IsVat, Notes, CarPlate, OdometerKm). Returns `200 OK` with the updated `SettlementDto` (D-042/D-003 — line not independently addressable; the parent aggregate is the returned resource).
+
+**Validation:** explicit `IValidator<UpdateLineCommand>.ValidateAsync` call (D-040). Failures throw `PettyCash.Application.Exceptions.ValidationException` → 400 with `errors` extension. Domain rule violations (e.g. editing a non-Draft settlement) throw Domain-namespace exceptions → 400 via `GlobalExceptionHandler`'s namespace-string match (D-031).
+
+**Error paths tested:** zero amount → 400 (FluentValidation), car-plate-without-odometer → 400 (FluentValidation paired-fields rule), unknown settlement → 404, unknown category → 404.
+
+**Testing:** `PettyCash.Api.Tests/Settlements/UpdateSettlementLineEndpointTests.cs` (6 tests). Reuses `ApiWebApplicationFactory`/`"Api"` xUnit collection.
+
+**No Domain/Application/Infrastructure change.**
+
+---
+
+## 21. Api Layer — Vertical Slice 7 (Remove Settlement Line)
+
+**What's implemented:** `DELETE /api/v1/settlements/{settlementId}/lines/{lineId}` — added to `SettlementsEndpoints.cs`. Reuses `RemoveLineCommandHandler` (Milestone 0.3) completely unchanged. Both IDs bound from route; no request body. Returns `200 OK` with the updated `SettlementDto` (line removed, TotalAmount recomputed — same D-042/D-003 reasoning as VS6).
+
+**Validation:** explicit `IValidator<RemoveLineCommand>.ValidateAsync` call for consistency with D-040 (the validator only checks both Guids are non-empty — the `:guid` route constraints already guarantee this in practice, but the call is kept so the pattern is uniform across all mutating endpoints).
+
+**Error paths:** unknown settlement → 404 (`NotFoundException`); unknown line on a known settlement → 400 (`Settlement.RemoveLine()` throws a Domain-namespace exception, mapped to 400 by `GlobalExceptionHandler`'s namespace-string match, D-031).
+
+**Testing:** `PettyCash.Api.Tests/Settlements/RemoveSettlementLineEndpointTests.cs` (4 tests): only line removed → 200 with empty Lines and zero TotalAmount, one-of-two lines removed → 200 with correct remaining line and TotalAmount, unknown settlement → 404, unknown line on known settlement → 400. Reuses `ApiWebApplicationFactory`/`"Api"` xUnit collection.
+
+**No Domain/Application/Infrastructure change.**

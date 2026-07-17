@@ -2,16 +2,16 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch — it already exists and is documented.
 
-_Last updated: 2026-07-16 (Vertical Slice 3 fully verified and closed)._
+_Last updated: 2026-07-17 (VS4–7 verified by client; documentation closed out; VS8–10 set as next batch)._
 Vertical Slice Roadmap
 
 ✓ VS1 - Create Draft Settlement
 ✓ VS2 - Add Settlement Line
 ✓ VS3 - Submit Settlement
-□ VS4 - Get Settlement
-□ VS5 - List Settlements
-□ VS6 - Update Settlement Line
-□ VS7 - Remove Settlement Line
+✓ VS4 - Get Settlement Detail (verified 2026-07-17)
+✓ VS5 - List My Settlements (verified 2026-07-17)
+✓ VS6 - Update Settlement Line (verified 2026-07-17)
+✓ VS7 - Remove Settlement Line (verified 2026-07-17)
 □ VS8 - Approve Settlement
 □ VS9 - Reject Settlement
 □ VS10 - Reopen Settlement
@@ -47,6 +47,10 @@ Business source of truth: `docs/Developer-Guide.docx`. Do not treat this handoff
 ---
 
 ## 4. Current Verified State
+
+**Vertical Slices 4–7 — Employee Workflow batch: CLOSED (2026-07-17). Fully verified by the client.**
+`GET /api/v1/settlements/{settlementId}` (VS4), `GET /api/v1/settlements/mine` (VS5), `PUT /api/v1/settlements/{settlementId}/lines/{lineId}` (VS6), `DELETE /api/v1/settlements/{settlementId}/lines/{lineId}` (VS7) — all in `SettlementsEndpoints.cs`, all reusing frozen Application-layer query/command handlers (Milestone 0.3). `UpdateSettlementLineRequest.cs` already on disk. Test files: `GetSettlementEndpointTests.cs` (3), `GetMySettlementsEndpointTests.cs` (3), `UpdateSettlementLineEndpointTests.cs` (6), `RemoveSettlementLineEndpointTests.cs` (4) — all using the shared `[Collection("Api")]` fixture. All code was found fully implemented in the repository at session start; documentation was the only gap. No Domain/Application/Infrastructure change.
+Client verification confirmed: `docker compose up -d` ✅, `dotnet restore` ✅, `dotnet build` ✅, `dotnet test` ✅ (all passing, includes VS4–7 tests), `dotnet run` ✅.
 
 **Vertical Slice 3 — Submit Settlement: CLOSED (2026-07-16). Fully verified by the client.**
 `POST /api/v1/settlements/{settlementId}/submit` (`PettyCash.Api/Endpoints/SettlementsEndpoints.cs`), reusing the existing, unchanged `SubmitSettlementCommand`/Handler/Validator. Returns 200 with the updated `SettlementDto`. `SubmitSettlementEndpointTests.cs` (4 tests: happy path Draft+line→Submitted, no-lines→400, unknown ID→404, double-submit→400) was already present in the repository and already included in the verified 116-test count — no new production code or test file was required. Investigation confirmed by reading `SettlementsEndpoints.cs`, `SubmitSettlementCommand.cs`, `ApplicationServiceCollectionExtensions.cs`, and `GlobalExceptionHandler.cs`. See `CHANGELOG.md`'s Vertical Slice 3 entry for full detail.
@@ -113,7 +117,11 @@ Per `docs/TODO.md`, in order:
 7. ~~Vertical Slice 1 — Create Draft Settlement~~ **Done, closed, verified (2026-07-16)**
 7b. ~~Vertical Slice 2 — Add Settlement Line~~ **Done, closed, verified (2026-07-16)**
 7c. ~~Vertical Slice 3 — Submit Settlement~~ **Done, closed, verified (2026-07-16)** — endpoint, handler, and tests were already present in the repository; no new code was required
-7d. **Vertical Slice 4** — scope not yet formally defined; awaiting client direction
+7d. ~~Vertical Slice 4 — Get Settlement Detail~~ **Done, closed, verified (2026-07-17)**
+7e. ~~Vertical Slice 5 — List My Settlements~~ **Done, closed, verified (2026-07-17)**
+7f. ~~Vertical Slice 6 — Update Settlement Line~~ **Done, closed, verified (2026-07-17)**
+7g. ~~Vertical Slice 7 — Remove Settlement Line~~ **Done, closed, verified (2026-07-17)**
+7h. **Manager Workflow Batch (VS8 Approve / VS9 Reject / VS10 Reopen)** — next implementation batch, not yet started
 8. **Milestone 0.5 — SharePoint + Entra adapters (production)** — not started
 9. **Milestone 0.6 — remaining API business endpoints + minimal React UI** — not started
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
@@ -122,14 +130,13 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**Vertical Slice 4 — scope not yet formally defined; awaiting client direction.**
+**Manager Workflow Batch — VS8 / VS9 / VS10. Confirmed by client. Not yet started.**
 
-Next logical candidates from `ARCHITECTURE.md §9` (in rough priority order, for client to confirm):
-- `GET /api/v1/settlements/{id}` — first read endpoint; already referenced by VS1's `Location` header
-- `GET /api/v1/settlements/mine` — spender list view
-- `POST /api/v1/settlements/{id}/lines/{lineId}` (Update line) or `DELETE` (Remove line)
+- **VS8** — `POST /api/v1/settlements/{settlementId}/approve`: wraps `ApproveSettlementCommand`/Handler (Milestone 0.3). Caller: Approver or System service account (D-006).
+- **VS9** — `POST /api/v1/settlements/{settlementId}/reject`: wraps `RejectSettlementCommand`/Handler. Body: rejection comment.
+- **VS10** — `POST /api/v1/settlements/{settlementId}/reopen`: wraps `ReopenSettlementCommand`/Handler (Rejected → Draft, Version++).
 
-Do not start any of these without explicit client confirmation of scope.
+All three: same endpoint/validation/error-mapping conventions as the employee batch (D-039/D-040/D-031/D-042). Continue using `DevelopmentCurrentUserContext` — no auth changes this batch.
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -226,6 +233,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-16 — Vertical Slice 2 (Add Settlement Line) closed and fully verified by the client (116 tests passing), incl. post-verification fix D-043 (missing file recreated and confirmed present): §4/§6/§7 updated; §7 set to Vertical Slice 3 with scope explicitly flagged as unconfirmed, not started; last-updated header updated.
 - 2026-07-16 — Client confirmed Vertical Slice 3 scope = Submit Settlement (`SubmitSettlementCommand`). §6/§7 updated to remove the "scope not yet formally defined" note and record the confirmed scope. Documentation-only change, no code touched.
 - 2026-07-16 — Vertical Slice 3 closed and fully verified by the client (116 tests passing, confirmed). Investigation showed all VS3 components (endpoint, handler registration, tests) were already present in the repository; no new code was required. §4/§6/§7 updated; §7 set to Vertical Slice 4 with scope explicitly flagged as not yet defined, awaiting client direction; last-updated header updated.
+- 2026-07-17 — VS4–7 (Employee Workflow batch) closed and fully verified by the client (all tests passing). All code was found fully implemented in the repository at session start; documentation was the only gap. §3 roadmap block, §4, §6, §7, §13 updated; §7 set to Manager Workflow Batch (VS8–10), confirmed by client, not yet started. Last-updated header updated.
 
 # Session Start Protocol
 
