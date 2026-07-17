@@ -61,6 +61,7 @@
   <ItemGroup Label="API foundation — Sprint 5">
     <!-- First-party, versioned in lockstep with the ASP.NET Core 9.0.x shared framework — kept at the same 9.0.4 patch as the rest of the pinned EF Core/Extensions line for one consistent story. -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
     <!-- 8.1.0 deliberately, not the newer 10.0.0: Asp.Versioning 10.x targets .NET 10 specifically (its OpenAPI integration story is built for the .NET 10 pipeline). 8.1.0 is the .NET 9-targeted line. -->
     <PackageVersion Include="Asp.Versioning.Http" Version="8.1.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />

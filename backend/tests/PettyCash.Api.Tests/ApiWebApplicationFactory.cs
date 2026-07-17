@@ -1,8 +1,14 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using PettyCash.Application.Abstractions;
 using PettyCash.Infrastructure.Postgres;
 using Testcontainers.PostgreSql;
@@ -31,6 +37,9 @@ namespace PettyCash.Api.Tests;
 /// </summary>
 public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private const string TestJwtIssuer = "https://pettycash-tests.local";
+    private const string TestJwtAudience = "pettycash-api-tests";
+    private const string TestJwtSigningKey = "pettycash-tests-jwt-signing-key-please-change";
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .WithDatabase("pettycash_api_test")
@@ -80,9 +89,32 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, I
         }).CreateClient();
     }
 
+    public HttpClient CreateAnonymousClient()
+    {
+        return CreateEntraAnonymousClient();
+    }
+
+    public HttpClient CreateEntraEnabledClient(CurrentUser user)
+    {
+        HttpClient client = CreateClientWithEntraEnabledConfiguration();
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateBearerToken(user));
+
+        return client;
+    }
+
+    public HttpClient CreateEntraAnonymousClient()
+    {
+        return CreateClientWithEntraEnabledConfiguration();
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        if (string.IsNullOrWhiteSpace(builder.GetSetting(WebHostDefaults.EnvironmentKey)))
+        {
+            builder.UseEnvironment("Development");
+        }
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
@@ -101,6 +133,90 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, I
     {
         public FixedCurrentUserContext(CurrentUser user) => Current = user;
         public CurrentUser Current { get; }
+    }
+
+
+    private static SecurityKey GetSigningKey()
+        => new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtSigningKey));
+
+    private HttpClient CreateClientWithEntraEnabledConfiguration()
+    {
+        var overrides = new Dictionary<string, string?>
+        {
+            ["Authentication__Entra__Enabled"] = "true",
+            ["Authentication__Entra__TenantId"] = "test-tenant-id",
+            ["Authentication__Entra__ClientId"] = TestJwtAudience,
+            ["Authentication__Entra__Authority"] = $"{TestJwtIssuer}/v2.0",
+            ["Authentication__Entra__RequireHttpsMetadata"] = "false",
+        };
+
+        var previousValues = overrides.Keys.ToDictionary(
+            key => key,
+            key => Environment.GetEnvironmentVariable(key));
+
+        foreach (var pair in overrides)
+        {
+            Environment.SetEnvironmentVariable(pair.Key, pair.Value);
+        }
+
+        try
+        {
+            return WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+                    {
+                        options.RequireHttpsMetadata = false;
+                        options.Authority = string.Empty;
+                        options.MetadataAddress = string.Empty;
+                        options.TokenValidationParameters = new TokenValidationParameters
+                        {
+                            ValidateIssuer = true,
+                            ValidIssuer = TestJwtIssuer,
+                            ValidateAudience = true,
+                            ValidAudience = TestJwtAudience,
+                            ValidateIssuerSigningKey = true,
+                            IssuerSigningKey = GetSigningKey(),
+                            ValidateLifetime = true,
+                            ClockSkew = TimeSpan.Zero,
+                            RoleClaimType = "roles",
+                            NameClaimType = "oid"
+                        };
+                    });
+                });
+            }).CreateClient();
+        }
+        finally
+        {
+            foreach (var key in overrides.Keys)
+            {
+                Environment.SetEnvironmentVariable(key, previousValues[key]);
+            }
+        }
+    }
+
+    private static string CreateBearerToken(CurrentUser user)
+    {
+        var claims = new List<Claim>
+        {
+            new("oid", user.UserId),
+            new("preferred_username", user.Email),
+            new("email", user.Email)
+        };
+
+        claims.AddRange(user.Roles.Select(role => new Claim("roles", role.ToString())));
+
+        var credentials = new SigningCredentials(GetSigningKey(), SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: TestJwtIssuer,
+            audience: TestJwtAudience,
+            claims: claims,
+            notBefore: DateTime.UtcNow.AddMinutes(-1),
+            expires: DateTime.UtcNow.AddMinutes(30),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     public async Task InitializeAsync()

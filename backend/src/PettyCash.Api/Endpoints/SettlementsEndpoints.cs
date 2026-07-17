@@ -1,7 +1,9 @@
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using FluentValidation;
+using PettyCash.Api.DependencyInjection;
 using PettyCash.Application.Common;
+using PettyCash.Application.Abstractions;
 using PettyCash.Application.DTOs;
 using PettyCash.Application.Exceptions;
 using PettyCash.Application.Settlements.Commands;
@@ -36,11 +38,13 @@ public static class SettlementsEndpoints
         RouteGroupBuilder group = endpoints
             .MapGroup("/api/v{version:apiVersion}/settlements")
             .WithApiVersionSet(versionSet)
-            .WithTags("Settlements");
+            .WithTags("Settlements")
+            .RequireAuthorization();
 
         group.MapPost("/", CreateDraftSettlementAsync)
             .WithName("CreateDraftSettlement")
             .WithSummary("Creates a new Draft settlement for the calling spender.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -49,6 +53,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/lines", AddLineAsync)
             .WithName("AddSettlementLine")
             .WithSummary("Adds a line to an existing Draft (or reopened) settlement.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -57,6 +62,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/submit", SubmitSettlementAsync)
             .WithName("SubmitSettlement")
             .WithSummary("Submits a Draft (or reopened) settlement for approval.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -68,12 +74,14 @@ public static class SettlementsEndpoints
         group.MapGet("/mine", GetMySettlementsAsync)
             .WithName("GetMySettlements")
             .WithSummary("Returns all settlements belonging to the calling spender.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<IReadOnlyList<SettlementSummaryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapGet("/{settlementId:guid}", GetSettlementByIdAsync)
             .WithName("GetSettlementById")
             .WithSummary("Returns the full detail of a single settlement (ownership/role checked).")
+            .RequireAuthorization(EntraAuthorizationPolicies.ViewSettlement)
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -81,6 +89,7 @@ public static class SettlementsEndpoints
         group.MapPut("/{settlementId:guid}/lines/{lineId:guid}", UpdateLineAsync)
             .WithName("UpdateSettlementLine")
             .WithSummary("Updates a line on a Draft settlement.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -89,6 +98,7 @@ public static class SettlementsEndpoints
         group.MapDelete("/{settlementId:guid}/lines/{lineId:guid}", RemoveLineAsync)
             .WithName("RemoveSettlementLine")
             .WithSummary("Removes a line from a Draft settlement.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -98,6 +108,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/approve", ApproveSettlementAsync)
             .WithName("ApproveSettlement")
             .WithSummary("Approves a Submitted settlement (Approver or System role required).")
+            .RequireAuthorization(EntraAuthorizationPolicies.ApproveOrReject)
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -105,6 +116,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/reject", RejectSettlementAsync)
             .WithName("RejectSettlement")
             .WithSummary("Rejects a Submitted settlement with a mandatory comment (Approver or System role required).")
+            .RequireAuthorization(EntraAuthorizationPolicies.ApproveOrReject)
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -113,6 +125,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/reopen", ReopenSettlementAsync)
             .WithName("ReopenSettlement")
             .WithSummary("Reopens a Rejected settlement for editing (spender/owner only). Rejected to Draft, Version++.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -122,6 +135,7 @@ public static class SettlementsEndpoints
         group.MapPost("/{settlementId:guid}/journal", RecordJournalAsync)
             .WithName("RecordJournal")
             .WithSummary("Records the D365FO journal batch number written back by Power Automate (System role only). Approved \u2192 Journalled.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.System))
             .Produces<SettlementDto>(StatusCodes.Status200OK)
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status403Forbidden)

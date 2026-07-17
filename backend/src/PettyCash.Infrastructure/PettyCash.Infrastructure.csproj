@@ -34,5 +34,8 @@
     <ProjectReference Include="..\PettyCash.Domain\PettyCash.Domain.csproj" />
     <ProjectReference Include="..\PettyCash.Application\PettyCash.Application.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
 </Project>
