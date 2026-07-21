@@ -22,6 +22,7 @@ public sealed class AuthorizationCoverageEndpointTests
         yield return new object[] { new EndpointCase("AddLine", HttpMethod.Post, "/api/v1/settlements/{settlementId}/lines", new { categoryCode = "OFFICE_SUPPLIES", grossAmount = 100m, isVat = false, notes = "Auth", carPlate = (string?)null, odometerKm = (decimal?)null }) };
         yield return new object[] { new EndpointCase("Submit", HttpMethod.Post, "/api/v1/settlements/{settlementId}/submit", null) };
         yield return new object[] { new EndpointCase("GetMine", HttpMethod.Get, "/api/v1/settlements/mine", null) };
+        yield return new object[] { new EndpointCase("GetApproverInbox", HttpMethod.Get, "/api/v1/settlements/inbox", null) };
         yield return new object[] { new EndpointCase("GetById", HttpMethod.Get, "/api/v1/settlements/{settlementId}", null) };
         yield return new object[] { new EndpointCase("UpdateLine", HttpMethod.Put, "/api/v1/settlements/{settlementId}/lines/{lineId}", new { categoryCode = "OFFICE_SUPPLIES", grossAmount = 120m, isVat = false, notes = "Updated", carPlate = (string?)null, odometerKm = (decimal?)null }) };
         yield return new object[] { new EndpointCase("RemoveLine", HttpMethod.Delete, "/api/v1/settlements/{settlementId}/lines/{lineId}", null) };
@@ -87,6 +88,10 @@ public sealed class AuthorizationCoverageEndpointTests
         // GetMine (Spender policy)
         HttpResponseMessage mine = await spenderClient.GetAsync("/api/v1/settlements/mine");
         Assert.Equal(HttpStatusCode.OK, mine.StatusCode);
+
+        // GetApproverInbox (Approver policy)
+        HttpResponseMessage inbox = await approverClient.GetAsync("/api/v1/settlements/inbox");
+        Assert.Equal(HttpStatusCode.OK, inbox.StatusCode);
 
         // GetById (View policy: AP Accountant succeeds)
         SettlementDto viewSeed = await CreateDraftAsync(spenderClient, "Auth view flow");

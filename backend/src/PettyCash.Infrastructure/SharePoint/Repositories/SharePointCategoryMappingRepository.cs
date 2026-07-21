@@ -19,6 +19,7 @@ internal sealed class SharePointCategoryMappingRepository : ICategoryMappingRepo
             ? null
             : new CategoryMappingReadModel(
                 item.CategoryCode,
+                item.CategoryCode,
                 item.ExpenseMainAccount,
                 item.DimensionDefaults,
                 item.SalesTaxGroup,
@@ -33,6 +34,7 @@ internal sealed class SharePointCategoryMappingRepository : ICategoryMappingRepo
         return items
             .Where(item => item.Active)
             .Select(item => new CategoryMappingReadModel(
+                item.CategoryCode,
                 item.CategoryCode,
                 item.ExpenseMainAccount,
                 item.DimensionDefaults,

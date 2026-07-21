@@ -8,7 +8,7 @@ internal sealed record SharePointSettlementLineItem(
     int LineNo,
     string CategoryCode,
     string ExpenseMainAccountSnapshot,
-    string DimensionDefaultsSnapshot,
+    string? DimensionDefaultsSnapshot,
     decimal GrossAmount,
     string Currency,
     bool IsVat,

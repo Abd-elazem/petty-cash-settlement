@@ -23,6 +23,10 @@ public interface ISettlementRepository
 
     Task<IReadOnlyList<Settlement>> GetBySpenderIdAsync(string spenderId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Settlement>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(Settlement settlement, CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -144,10 +144,7 @@ internal sealed class GraphSharePointSettlementLinesGateway : ISharePointSettlem
             return null;
         }
 
-        if (!TryReadRequiredString(item.Fields, "DimensionDefaultsSnapshot", out var dimensionDefaultsSnapshot))
-        {
-            return null;
-        }
+        var dimensionDefaultsSnapshot = ReadOptionalString(item.Fields, "DimensionDefaultsSnapshot");
 
         if (!TryReadDecimal(item.Fields, "GrossAmount", out var grossAmount))
         {

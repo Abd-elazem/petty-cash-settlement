@@ -56,6 +56,30 @@ internal sealed class SharePointSettlementRepository : ISettlementRepository
             .ToList();
     }
 
+    public async Task<IReadOnlyList<Settlement>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default)
+    {
+        var headers = await _headersGateway.GetPendingApprovalByApproverEmailAsync(approverEmail, cancellationToken);
+        if (headers.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<Settlement>(headers.Count);
+        foreach (var header in headers)
+        {
+            var lines = await _linesGateway.GetByRequestIdAsync(header.RequestId, cancellationToken);
+            var settlement = SettlementHydration.CreateAggregate(header, lines);
+            TrackToken(settlement.Id, header.ItemId, header.ETag);
+            result.Add(settlement);
+        }
+
+        return result
+            .OrderByDescending(s => s.SettlementDate)
+            .ToList();
+    }
+
     public async Task AddAsync(Settlement settlement, CancellationToken cancellationToken = default)
     {
         var header = SettlementHydration.ToHeader(settlement, itemId: string.Empty, eTag: null);

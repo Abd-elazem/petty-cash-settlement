@@ -204,6 +204,55 @@ public sealed class SettlementRepositoryContractParityTests
     [Theory]
     [InlineData(RepositoryBackend.Postgres)]
     [InlineData(RepositoryBackend.SharePoint)]
+    public async Task ApproverInbox_ReturnsOnlySubmittedRowsForApprover(RepositoryBackend backend)
+    {
+        await using var harness = CreateHarness(backend);
+        var repo = await harness.CreateRepositoryAsync();
+        var targetApprover = $"manager-{Guid.NewGuid():N}@canex.com";
+
+        var submittedMine = Settlement.CreateDraft(
+            spenderId: $"spender-{Guid.NewGuid():N}",
+            spenderNameSnapshot: "Ali",
+            workerIdSnapshot: "W-009",
+            approverEmailSnapshot: targetApprover,
+            settlementDate: new DateOnly(2026, 7, 8),
+            purpose: "Submitted mine");
+        submittedMine.AddLine("OFFICE_SUPPLIES", "6100", "Dept:Ops", 100m, false, 14m, false, null, null);
+        submittedMine.Submit();
+
+        var draftMine = Settlement.CreateDraft(
+            spenderId: $"spender-{Guid.NewGuid():N}",
+            spenderNameSnapshot: "Nour",
+            workerIdSnapshot: "W-010",
+            approverEmailSnapshot: targetApprover,
+            settlementDate: new DateOnly(2026, 7, 8),
+            purpose: "Draft mine");
+
+        var submittedOtherApprover = Settlement.CreateDraft(
+            spenderId: $"spender-{Guid.NewGuid():N}",
+            spenderNameSnapshot: "Mona",
+            workerIdSnapshot: "W-011",
+            approverEmailSnapshot: "other.manager@canex.com",
+            settlementDate: new DateOnly(2026, 7, 8),
+            purpose: "Submitted other");
+        submittedOtherApprover.AddLine("OFFICE_SUPPLIES", "6100", "Dept:Ops", 120m, false, 14m, false, null, null);
+        submittedOtherApprover.Submit();
+
+        await repo.AddAsync(submittedMine);
+        await repo.AddAsync(draftMine);
+        await repo.AddAsync(submittedOtherApprover);
+
+        var inbox = await repo.GetPendingApprovalByApproverEmailAsync(targetApprover);
+
+        Assert.Single(inbox);
+        Assert.Equal("Submitted mine", inbox[0].Purpose);
+        Assert.Equal(SettlementStatus.Submitted, inbox[0].Status);
+        Assert.Equal(targetApprover, inbox[0].ApproverEmailSnapshot);
+    }
+
+    [Theory]
+    [InlineData(RepositoryBackend.Postgres)]
+    [InlineData(RepositoryBackend.SharePoint)]
     public async Task ConcurrencyConflict_SecondWriterFails(RepositoryBackend backend)
     {
         await using var harness = CreateHarness(backend);
@@ -341,6 +390,18 @@ public sealed class SettlementRepositoryContractParityTests
             }
         }
 
+        public IReadOnlyList<SharePointSettlementHeaderItem> GetPendingApprovalByApproverEmail(string approverEmail)
+        {
+            lock (_sync)
+            {
+                return _headersByRequestId.Values
+                    .Where(h => string.Equals(h.ApproverEmailSnapshot, approverEmail, StringComparison.OrdinalIgnoreCase))
+                    .Where(h => string.Equals(h.Status, SettlementStatus.Submitted.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .Select(CloneHeader)
+                    .ToList();
+            }
+        }
+
         public SharePointSettlementHeaderItem AddHeader(SharePointSettlementHeaderItem header)
         {
             lock (_sync)
@@ -423,6 +484,11 @@ public sealed class SettlementRepositoryContractParityTests
 
         public Task<IReadOnlyList<SharePointSettlementHeaderItem>> GetBySpenderIdAsync(string spenderId, CancellationToken cancellationToken = default)
             => Task.FromResult(_store.GetHeadersBySpenderId(spenderId));
+
+        public Task<IReadOnlyList<SharePointSettlementHeaderItem>> GetPendingApprovalByApproverEmailAsync(
+            string approverEmail,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(_store.GetPendingApprovalByApproverEmail(approverEmail));
 
         public Task<SharePointSettlementHeaderItem> AddAsync(SharePointSettlementHeaderItem header, CancellationToken cancellationToken = default)
             => Task.FromResult(_store.AddHeader(header));

@@ -192,3 +192,13 @@ The repository wins.
 Investigate.
 
 Do not implement new work until the inconsistency is resolved.
+
+
+
+##16 When reviewing EF Core seed data that uses positional record constructors:
+
+Never infer parameter meaning from previous assumptions.
+
+Always verify the current constructor signature before reasoning about seed values.
+
+If a constructor signature has changed during the feature, remap every positional argument before drawing conclusions about the seeded data.

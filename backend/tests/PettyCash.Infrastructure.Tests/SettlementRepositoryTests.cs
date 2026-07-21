@@ -107,6 +107,41 @@ public class SettlementRepositoryTests
     }
 
     [Fact]
+    public async Task GetPendingApprovalByApproverEmail_ReturnsOnlySubmittedRowsAssignedToApprover()
+    {
+        var targetApprover = $"manager-{Guid.NewGuid():N}@canex.com";
+        await using var db = _fixture.CreateContext();
+        var repo = new PostgresSettlementRepository(db);
+
+        var submittedMine = Settlement.CreateDraft(
+            $"spender-{Guid.NewGuid():N}", "Ahmed Ali", "W-001", targetApprover,
+            new DateOnly(2026, 7, 1), "Submitted mine");
+        submittedMine.AddLine("OFFICE_SUPPLIES", "6100", "Dept:IT", 100m, false, 14m, false, null, null);
+        submittedMine.Submit();
+
+        var draftMine = Settlement.CreateDraft(
+            $"spender-{Guid.NewGuid():N}", "Sara Adel", "W-002", targetApprover,
+            new DateOnly(2026, 7, 1), "Draft mine");
+
+        var submittedOtherApprover = Settlement.CreateDraft(
+            $"spender-{Guid.NewGuid():N}", "Nour Ahmed", "W-003", "other.manager@canex.com",
+            new DateOnly(2026, 7, 1), "Submitted other");
+        submittedOtherApprover.AddLine("OFFICE_SUPPLIES", "6100", "Dept:IT", 120m, false, 14m, false, null, null);
+        submittedOtherApprover.Submit();
+
+        await repo.AddAsync(submittedMine);
+        await repo.AddAsync(draftMine);
+        await repo.AddAsync(submittedOtherApprover);
+
+        await using var readDb = _fixture.CreateContext();
+        var result = await new PostgresSettlementRepository(readDb).GetPendingApprovalByApproverEmailAsync(targetApprover);
+
+        Assert.Single(result);
+        Assert.Equal("Submitted mine", result[0].Purpose);
+        Assert.Equal(SettlementStatus.Submitted, result[0].Status);
+    }
+
+    [Fact]
     public async Task Update_PersistsStatusTransitionAndLineChanges()
     {
         await using var db = _fixture.CreateContext();
@@ -170,5 +205,92 @@ public class SettlementRepositoryTests
 
         Assert.Single(reloaded!.Lines);
         Assert.Equal("OFFICE_SUPPLIES", reloaded.Lines[0].CategoryCode);
+    }
+
+    [Fact]
+    public async Task AddWithLines_NullDimensionDefaultsSnapshot_RoundTripsAsNull()
+    {
+        // Arrange: a line whose category has no dimension defaults (null, not empty string)
+        await using var db = _fixture.CreateContext();
+        var repo = new PostgresSettlementRepository(db);
+        var settlement = Settlement.CreateDraft(
+            $"spender-{Guid.NewGuid():N}", "Ahmed Ali", "W-001", "manager@canex.com",
+            new DateOnly(2026, 7, 1), "Null dimension defaults round-trip");
+
+        settlement.AddLine("OFFICE_SUPPLIES", "6100", null,
+            150m, isVat: false, vatRatePercent: 14m,
+            kmRequired: false, odometer: null, notes: null);
+
+        await repo.AddAsync(settlement);
+
+        // Act: reload from a fresh context
+        await using var readDb = _fixture.CreateContext();
+        var reloaded = await new PostgresSettlementRepository(readDb).GetByIdAsync(settlement.Id);
+
+        // Assert: null survived the Postgres round-trip (column is genuinely nullable after migration)
+        Assert.NotNull(reloaded);
+        Assert.Single(reloaded!.Lines);
+        Assert.Null(reloaded.Lines[0].DimensionDefaultsSnapshot);
+    }
+
+    [Fact]
+    public async Task ExistingSettlements_ContinueToLoadAndSaveCorrectly_AfterNullableMigration()
+    {
+        // Arrange: seed a settlement with non-null DimensionDefaultsSnapshot values,
+        // simulating data written before the nullable migration was applied.
+        // The migration only relaxes the constraint; pre-existing non-null values are unaffected.
+        await using var writeDb = _fixture.CreateContext();
+        var writeRepo = new PostgresSettlementRepository(writeDb);
+        var settlement = Settlement.CreateDraft(
+            $"spender-{Guid.NewGuid():N}", "Ahmed Ali", "W-001", "manager@canex.com",
+            new DateOnly(2026, 7, 1), "Pre-migration settlement");
+
+        settlement.AddLine("OFFICE_SUPPLIES", "6100", "Dept:Admin",
+            150m, isVat: false, vatRatePercent: 14m,
+            kmRequired: false, odometer: null, notes: "Paper");
+        settlement.AddLine("FUEL", "6200", "Dept:Fleet",
+            300m, isVat: true, vatRatePercent: 14m,
+            kmRequired: true, odometer: new OdometerReading("XYZ-9999", 10000m), notes: null);
+
+        await writeRepo.AddAsync(settlement);
+
+        // Act 1: reload — existing non-null snapshot values must be preserved exactly
+        await using var readDb = _fixture.CreateContext();
+        var reloaded = await new PostgresSettlementRepository(readDb).GetByIdAsync(settlement.Id);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal(2, reloaded!.Lines.Count);
+        Assert.Equal(450m, reloaded.TotalAmount);
+        Assert.Equal("Dept:Admin",  reloaded.Lines.Single(l => l.CategoryCode == "OFFICE_SUPPLIES").DimensionDefaultsSnapshot);
+        Assert.Equal("Dept:Fleet", reloaded.Lines.Single(l => l.CategoryCode == "FUEL").DimensionDefaultsSnapshot);
+        Assert.Equal(SettlementStatus.Draft, reloaded.Status);
+
+        // Act 2: save without modification — must produce no unexpected updates or errors
+        await using var saveDb = _fixture.CreateContext();
+        var saveRepo = new PostgresSettlementRepository(saveDb);
+        var toSave = await saveRepo.GetByIdAsync(settlement.Id);
+        await saveRepo.UpdateAsync(toSave!);
+
+        // Assert: second reload confirms nothing changed
+        await using var verifyDb = _fixture.CreateContext();
+        var verified = await new PostgresSettlementRepository(verifyDb).GetByIdAsync(settlement.Id);
+
+        Assert.Equal(2, verified!.Lines.Count);
+        Assert.Equal("Dept:Admin",  verified.Lines.Single(l => l.CategoryCode == "OFFICE_SUPPLIES").DimensionDefaultsSnapshot);
+        Assert.Equal("Dept:Fleet", verified.Lines.Single(l => l.CategoryCode == "FUEL").DimensionDefaultsSnapshot);
+        Assert.Equal(SettlementStatus.Draft, verified.Status);
+
+        // Act 3: CategoryMappings seed data continues to load correctly with original non-null values
+        var categoryRepo = new PostgresCategoryMappingRepository(verifyDb);
+        var officeSupplies = await categoryRepo.GetByCategoryCodeAsync("OFFICE_SUPPLIES");
+        var fuel          = await categoryRepo.GetByCategoryCodeAsync("FUEL");
+        var govFees       = await categoryRepo.GetByCategoryCodeAsync("GOVERNMENT_FEES");
+
+        Assert.NotNull(officeSupplies);
+        Assert.Equal("Dept:Admin",  officeSupplies!.DimensionDefaults);
+        Assert.NotNull(fuel);
+        Assert.Equal("Dept:Fleet", fuel!.DimensionDefaults);
+        Assert.NotNull(govFees);
+        Assert.Equal("Dept:Legal", govFees!.DimensionDefaults);
     }
 }

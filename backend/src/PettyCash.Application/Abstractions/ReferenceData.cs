@@ -9,8 +9,9 @@ namespace PettyCash.Application.Abstractions;
 /// </summary>
 public sealed record CategoryMappingReadModel(
     string CategoryCode,
+    string DisplayName,
     string ExpenseMainAccount,
-    string DimensionDefaults,
+    string? DimensionDefaults,
     string? SalesTaxGroup,
     string? ItemSalesTaxGroup,
     bool KmRequired,

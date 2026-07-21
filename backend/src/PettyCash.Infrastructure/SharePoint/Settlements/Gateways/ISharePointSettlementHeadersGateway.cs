@@ -8,6 +8,10 @@ internal interface ISharePointSettlementHeadersGateway
 
     Task<IReadOnlyList<SharePointSettlementHeaderItem>> GetBySpenderIdAsync(string spenderId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<SharePointSettlementHeaderItem>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default);
+
     Task<SharePointSettlementHeaderItem> AddAsync(SharePointSettlementHeaderItem header, CancellationToken cancellationToken = default);
 
     Task<SharePointSettlementHeaderItem> UpdateAsync(

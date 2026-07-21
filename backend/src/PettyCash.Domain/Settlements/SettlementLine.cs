@@ -17,7 +17,7 @@ public sealed class SettlementLine
     public int LineNo { get; internal set; }
     public string CategoryCode { get; private set; }
     public string ExpenseMainAccountSnapshot { get; private set; }
-    public string DimensionDefaultsSnapshot { get; private set; }
+    public string? DimensionDefaultsSnapshot { get; private set; }
     public Money GrossAmount { get; private set; }
     public bool IsVat { get; private set; }
     public VatBreakdown VatBreakdown { get; private set; }
@@ -35,7 +35,7 @@ public sealed class SettlementLine
     {
         CategoryCode = string.Empty;
         ExpenseMainAccountSnapshot = string.Empty;
-        DimensionDefaultsSnapshot = string.Empty;
+        // DimensionDefaultsSnapshot: null is correct default for EF materialization — field is optional
         GrossAmount = null!;
         VatBreakdown = null!;
     }
@@ -44,7 +44,7 @@ public sealed class SettlementLine
         int lineNo,
         string categoryCode,
         string expenseMainAccountSnapshot,
-        string dimensionDefaultsSnapshot,
+        string? dimensionDefaultsSnapshot,
         Money grossAmount,
         bool isVat,
         decimal vatRatePercent,
@@ -56,7 +56,7 @@ public sealed class SettlementLine
         LineNo = lineNo;
         CategoryCode = string.Empty;
         ExpenseMainAccountSnapshot = string.Empty;
-        DimensionDefaultsSnapshot = string.Empty;
+        // DimensionDefaultsSnapshot set via Apply() below
         GrossAmount = grossAmount;
         VatBreakdown = VatBreakdown.NotApplicable(grossAmount.Amount);
 
@@ -67,7 +67,7 @@ public sealed class SettlementLine
     internal void Update(
         string categoryCode,
         string expenseMainAccountSnapshot,
-        string dimensionDefaultsSnapshot,
+        string? dimensionDefaultsSnapshot,
         Money grossAmount,
         bool isVat,
         decimal vatRatePercent,
@@ -82,7 +82,7 @@ public sealed class SettlementLine
     private void Apply(
         string categoryCode,
         string expenseMainAccountSnapshot,
-        string dimensionDefaultsSnapshot,
+        string? dimensionDefaultsSnapshot,
         Money grossAmount,
         bool isVat,
         decimal vatRatePercent,

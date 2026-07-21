@@ -78,7 +78,7 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
         lines.Property(l => l.LineNo).IsRequired();
         lines.Property(l => l.CategoryCode).IsRequired().HasMaxLength(50);
         lines.Property(l => l.ExpenseMainAccountSnapshot).IsRequired().HasMaxLength(50);
-        lines.Property(l => l.DimensionDefaultsSnapshot).HasMaxLength(200);
+        lines.Property(l => l.DimensionDefaultsSnapshot).IsRequired(false).HasMaxLength(200);
         lines.Property(l => l.IsVat).IsRequired();
         lines.Property(l => l.Notes).HasMaxLength(1000);
 

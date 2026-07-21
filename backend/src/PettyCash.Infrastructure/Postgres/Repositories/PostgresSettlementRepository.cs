@@ -42,6 +42,17 @@ public sealed class PostgresSettlementRepository : ISettlementRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Settlement>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default)
+    {
+        return await _db.Settlements
+            .Where(s => s.Status == SettlementStatus.Submitted)
+            .Where(s => s.ApproverEmailSnapshot == approverEmail)
+            .OrderByDescending(s => s.SettlementDate)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Settlement settlement, CancellationToken cancellationToken = default)
     {
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);

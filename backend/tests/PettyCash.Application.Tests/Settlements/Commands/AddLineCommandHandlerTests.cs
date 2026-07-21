@@ -18,9 +18,9 @@ public class AddLineCommandHandlerTests
     }
 
     private static InMemoryCategoryMappingRepository SeedMappings() => new InMemoryCategoryMappingRepository()
-        .Seed(new("OFFICE_SUPPLIES", "6100", "Dept:IT", null, null, KmRequired: false, Active: true))
-        .Seed(new("FUEL", "6200", "Dept:Fleet", null, null, KmRequired: true, Active: true))
-        .Seed(new("DISCONTINUED", "6300", "Dept:X", null, null, KmRequired: false, Active: false));
+        .Seed(new("OFFICE_SUPPLIES", "Office Supplies", "6100", "Dept:IT", null, null, KmRequired: false, Active: true))
+        .Seed(new("FUEL", "Fuel", "6200", "Dept:Fleet", null, null, KmRequired: true, Active: true))
+        .Seed(new("DISCONTINUED", "Discontinued", "6300", "Dept:X", null, null, KmRequired: false, Active: false));
 
     [Fact]
     public async Task Handle_ValidLine_AddsLineAndReturnsUpdatedTotal()
@@ -93,5 +93,28 @@ public class AddLineCommandHandlerTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.HandleAsync(new AddLineCommand(Guid.NewGuid(), "OFFICE_SUPPLIES", 100m, false, null, null, null)));
+    }
+
+    [Fact]
+    public async Task Handle_CategoryWithNullDimensionDefaults_LineSnapshotIsNull()
+    {
+        // Arrange: mapping with genuinely null DimensionDefaults (no financial dimension defaults configured)
+        var mappings = new InMemoryCategoryMappingRepository()
+            .Seed(new("OFFICE_SUPPLIES", "Office Supplies", "6100",
+                      DimensionDefaults: null, null, null,
+                      KmRequired: false, Active: true));
+        var (repo, settlement) = await SeedDraftAsync();
+        var handler = new AddLineCommandHandler(
+            repo, mappings, new FakeVatConfiguration(),
+            FakeCurrentUserContext.ForSpender(), TestAuthorizationPolicy.Instance);
+
+        // Act
+        await handler.HandleAsync(
+            new AddLineCommand(settlement.Id, "OFFICE_SUPPLIES", 100m, false, null, null, null));
+
+        // Assert: null flows through handler → Domain → in-memory repo without coercion
+        var reloaded = await repo.GetByIdAsync(settlement.Id);
+        Assert.Single(reloaded!.Lines);
+        Assert.Null(reloaded.Lines[0].DimensionDefaultsSnapshot);
     }
 }

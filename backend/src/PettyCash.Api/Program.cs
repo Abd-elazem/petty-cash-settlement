@@ -69,9 +69,39 @@ else
     healthChecks.AddNpgSql(connectionString, name: "postgres");
 }
 
+// --- CORS: development-only policy for the Vite SPA dev server.
+// Registered conditionally so production builds never register or apply a permissive policy.
+// Allow any header/method because the SPA sends Content-Type + Authorization + preflight OPTIONS.
+// AllowCredentials() is intentionally omitted: the SPA uses bearer tokens, not cookies, and
+// the CORS spec prohibits combining AllowAnyOrigin with AllowCredentials.
+const string DevCorsPolicyName = "DevSpa";
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(DevCorsPolicyName, policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:5173",   // Vite default port
+                    "http://localhost:5174")   // Vite fallback port
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    });
+}
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
+
+// UseCors must precede UseAuthentication/UseAuthorization so preflight OPTIONS requests
+// are short-circuited by CORS middleware before hitting the auth pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(DevCorsPolicyName);
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -83,6 +113,7 @@ if (app.Environment.IsDevelopment())
 app.MapHealthChecks("/health");
 
 app.MapSettlementsEndpoints();
+app.MapCategoryMappingsEndpoints();
 
 app.Run();
 

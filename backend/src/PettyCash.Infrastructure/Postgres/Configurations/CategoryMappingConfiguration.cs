@@ -12,6 +12,7 @@ public sealed class CategoryMappingConfiguration : IEntityTypeConfiguration<Cate
         builder.ToTable("CategoryMappings");
         builder.HasKey(c => c.CategoryCode);
         builder.Property(c => c.CategoryCode).HasMaxLength(50);
+        builder.Property(c => c.DisplayName).IsRequired().HasMaxLength(100);
         builder.Property(c => c.ExpenseMainAccount).IsRequired().HasMaxLength(50);
         builder.Property(c => c.DimensionDefaults).HasMaxLength(200);
         builder.Property(c => c.SalesTaxGroup).HasMaxLength(50);
@@ -23,8 +24,8 @@ public sealed class CategoryMappingConfiguration : IEntityTypeConfiguration<Cate
         // (a non-fuel category and a fuel/KmRequired category) without a real Finance-owned
         // mapping list existing yet.
         builder.HasData(
-            new CategoryMappingReadModel("OFFICE_SUPPLIES", "6100", "Dept:Admin", null, null, KmRequired: false, Active: true),
-            new CategoryMappingReadModel("FUEL", "6200", "Dept:Fleet", "TXFULL", "ITFULL", KmRequired: true, Active: true),
-            new CategoryMappingReadModel("GOVERNMENT_FEES", "6300", "Dept:Legal", null, null, KmRequired: false, Active: true));
+            new CategoryMappingReadModel("OFFICE_SUPPLIES", "Office Supplies", "6100", "Dept:Admin", null, null, KmRequired: false, Active: true),
+            new CategoryMappingReadModel("FUEL", "Fuel", "6200", "Dept:Fleet", "TXFULL", "ITFULL", KmRequired: true, Active: true),
+            new CategoryMappingReadModel("GOVERNMENT_FEES", "Government Fees", "6300", "Dept:Legal", null, null, KmRequired: false, Active: true));
     }
 }

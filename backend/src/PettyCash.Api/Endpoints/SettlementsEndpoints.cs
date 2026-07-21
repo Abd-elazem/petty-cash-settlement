@@ -78,6 +78,13 @@ public static class SettlementsEndpoints
             .Produces<IReadOnlyList<SettlementSummaryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/inbox", GetApproverInboxAsync)
+            .WithName("GetApproverInbox")
+            .WithSummary("Returns Submitted settlements awaiting decision by the calling approver.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Approver))
+            .Produces<IReadOnlyList<SettlementDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapGet("/{settlementId:guid}", GetSettlementByIdAsync)
             .WithName("GetSettlementById")
             .WithSummary("Returns the full detail of a single settlement (ownership/role checked).")
@@ -249,6 +256,18 @@ public static class SettlementsEndpoints
             new GetMySettlementsQuery(), cancellationToken);
 
         return Results.Ok(summaries);
+    }
+
+    // ── Manager Inbox VS1: GET /settlements/inbox ─────────────────────────────────────
+
+    private static async Task<IResult> GetApproverInboxAsync(
+        IQueryHandler<GetApproverInboxQuery, IReadOnlyList<SettlementDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<SettlementDto> settlements = await handler.HandleAsync(
+            new GetApproverInboxQuery(), cancellationToken);
+
+        return Results.Ok(settlements);
     }
 
     // ── VS4: GET /settlements/{id} ────────────────────────────────────────────────────

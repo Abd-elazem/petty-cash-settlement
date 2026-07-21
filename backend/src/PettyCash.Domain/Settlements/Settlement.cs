@@ -91,7 +91,7 @@ public sealed class Settlement : AggregateRoot<Guid>
     public SettlementLine AddLine(
         string categoryCode,
         string expenseMainAccountSnapshot,
-        string dimensionDefaultsSnapshot,
+        string? dimensionDefaultsSnapshot,
         decimal grossAmount,
         bool isVat,
         decimal vatRatePercent,
@@ -121,7 +121,7 @@ public sealed class Settlement : AggregateRoot<Guid>
         Guid lineId,
         string categoryCode,
         string expenseMainAccountSnapshot,
-        string dimensionDefaultsSnapshot,
+        string? dimensionDefaultsSnapshot,
         decimal grossAmount,
         bool isVat,
         decimal vatRatePercent,

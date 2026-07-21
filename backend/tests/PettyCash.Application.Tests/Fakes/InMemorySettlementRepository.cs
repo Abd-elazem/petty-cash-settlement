@@ -25,6 +25,18 @@ public sealed class InMemorySettlementRepository : ISettlementRepository
         return Task.FromResult(result);
     }
 
+    public Task<IReadOnlyList<Settlement>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<Settlement> result = _store.Values
+            .Where(s => s.Status == SettlementStatus.Submitted)
+            .Where(s => string.Equals(s.ApproverEmailSnapshot, approverEmail, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return Task.FromResult(result);
+    }
+
     public Task AddAsync(Settlement settlement, CancellationToken cancellationToken = default)
     {
         _store[settlement.Id] = settlement;

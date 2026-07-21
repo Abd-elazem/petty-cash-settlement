@@ -73,6 +73,37 @@ internal sealed class GraphSharePointSettlementHeadersGateway : ISharePointSettl
             .ToList();
     }
 
+    public async Task<IReadOnlyList<SharePointSettlementHeaderItem>> GetPendingApprovalByApproverEmailAsync(
+        string approverEmail,
+        CancellationToken cancellationToken = default)
+    {
+        var escapedApproverEmail = EscapeODataString(approverEmail);
+        var submitted = SettlementStatus.Submitted.ToString();
+        var requestUri =
+            $"sites/{_options.Settlements.SiteId}/lists/{_options.Settlements.SettlementHeadersListId}/items" +
+            "?$expand=fields($select=RequestId,Version,SettlementDate,Purpose,SpenderId,SpenderNameSnapshot,WorkerIdSnapshot,ApproverEmailSnapshot,Status,ApprovalComment,JournalBatchNumber)" +
+            $"&$filter=fields/ApproverEmailSnapshot eq '{escapedApproverEmail}' and fields/Status eq '{submitted}'" +
+            "&$orderby=fields/SettlementDate desc";
+
+        using var response = await _graphApiClient.SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, requestUri),
+            operationName: "Settlements.Headers.GetPendingApprovalByApproverEmail",
+            cancellationToken: cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var payload = await JsonSerializer.DeserializeAsync<SharePointListItemsResponse>(stream, SerializerOptions, cancellationToken);
+        if (payload?.Value is null || payload.Value.Count == 0)
+        {
+            return [];
+        }
+
+        return payload.Value
+            .Select(MapToHeader)
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .ToList();
+    }
+
     public async Task<SharePointSettlementHeaderItem> AddAsync(SharePointSettlementHeaderItem header, CancellationToken cancellationToken = default)
     {
         var requestUri = $"sites/{_options.Settlements.SiteId}/lists/{_options.Settlements.SettlementHeadersListId}/items";

@@ -32,6 +32,8 @@ public static class ApplicationServiceCollectionExtensions
 
         services.AddScoped<IQueryHandler<GetSettlementByIdQuery, SettlementDto>, GetSettlementByIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetMySettlementsQuery, IReadOnlyList<SettlementSummaryDto>>, GetMySettlementsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetApproverInboxQuery, IReadOnlyList<SettlementDto>>, GetApproverInboxQueryHandler>();
+        services.AddScoped<IQueryHandler<GetCategoryMappingsQuery, IReadOnlyList<CategoryMappingDto>>, GetCategoryMappingsQueryHandler>();
 
         services.AddValidatorsFromAssemblyContaining<CreateDraftSettlementCommandValidator>();
 
