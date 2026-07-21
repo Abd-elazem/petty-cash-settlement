@@ -2,7 +2,7 @@
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch â€” it already exists and is documented.
 
-_Last updated: 2026-07-21 (Migration 20260721092741 finalised â€” snapshot seed data corrected; model/migrations/snapshot/HasData fully consistent; awaiting client dotnet build + dotnet ef database update + dotnet test verification)._
+_Last updated: 2026-07-21 (CategoryMappingsEndpointTests.cs added â€” snapshot seed data corrected; model/migrations/snapshot/HasData fully consistent; awaiting client dotnet build + dotnet ef database update + dotnet test verification)._
 Vertical Slice Roadmap
 
 âœ“ VS1 - Create Draft Settlement
@@ -210,24 +210,21 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**Migration 20260721092741 finalised (2026-07-21) â€” awaiting client verification.**
+**CategoryMappingsEndpointTests.cs implemented (2026-07-21) — awaiting client verification.**
 
-The migration is now semantically equivalent to what `dotnet ef migrations add` would have produced. One further correction was required after the initial migration was written:
+Previous session findings confirmed: repository was ahead of documentation through VS12; the only code gap was the absence of `CategoryMappingsEndpointTests.cs`. No production code was changed.
 
-The previous session's snapshot edit incorrectly removed `DimensionDefaults` from the `OFFICE_SUPPLIES` and `GOVERNMENT_FEES` seed rows on the false assumption that those rows have null dimension defaults. Re-reading `CategoryMappingConfiguration.HasData` and `CategoryMappingReadModel`'s constructor signature shows all three rows have non-null `DimensionDefaults` (`"Dept:Admin"`, `"Dept:Fleet"`, `"Dept:Legal"`). The snapshot seed data has been restored to include `DimensionDefaults` for all three rows.
+New test file: `tests/PettyCash.Api.Tests/Settlements/CategoryMappingsEndpointTests.cs` — 6 integration tests:
+- `Get_Anonymous_Returns401` — unauthenticated requests blocked
+- `Get_AuthenticatedAsSpender_Returns200` — default dev identity passes
+- `Get_AuthenticatedAsApprover_Returns200` — approver role passes (endpoint has no role restriction, only auth-required)
+- `Get_Returns_ListOfCategoryMappingDto` — response deserialises to correct DTO type
+- `Get_ContainsSeedRows_WithCorrectFields` — all three seed rows present with correct DisplayName and KmRequired values
+- `Get_ResponseDoesNotExposeInternalAccountingFields` — ExpenseMainAccount, DimensionDefaults, SalesTaxGroup, ItemSalesTaxGroup absent from JSON
 
-No `UpdateData` operations are needed in the migration â€” the database rows written by `InitialCreate` already contain the correct non-null values; the migration changes only the `NOT NULL` constraint, leaving data unchanged.
+Test counts after this session: Domain 37, Application 59, Infrastructure 40, Api 94 (was 88). Total: 230.
 
-**Final consistency state â€” all four sources verified consistent:**
-- C# model: `string? DimensionDefaults` / `string? DimensionDefaultsSnapshot` âœ…
-- EF configuration: no `.IsRequired()` / `.IsRequired(false)` âœ…
-- HasData: all three rows have non-null `DimensionDefaults` âœ…
-- Snapshot: no `.IsRequired()` on either property; seed data matches HasData exactly âœ…
-- Migrations (cumulative): both columns end as `character varying(200) NULL` âœ…
-
-_(Update this section the moment a new task starts â€” see آ§11.)_
-
----
+_(Update this section the moment a new task starts — see §11.)_
 
 ## 8. Outstanding Architectural Decisions
 
@@ -339,6 +336,7 @@ On completion of a vertical slice, update in the same turn:
 - 2026-07-20 â€” Category Mappings vertical slice (full-stack, frozen-layer exception approved): Backend â€” `DisplayName` added to `CategoryMappingReadModel` record and `CategoryMappingConfiguration` (EF column + updated seed data), migration `20260720000001_AddCategoryMappingDisplayName` (ADD COLUMN + backfill UPDATE + DROP DEFAULT), `PettyCashDbContextModelSnapshot` updated, `CategoryMappingDto` (Application/DTOs, 3 public fields only), `GetCategoryMappingsQuery`+`GetCategoryMappingsQueryHandler` (Application/Settlements/Queries), handler registered in `ApplicationServiceCollectionExtensions`, `CategoryMappingsEndpoints` (Api/Endpoints, `GET /api/v1/category-mappings`, separate file + route group), `Program.cs` (`MapCategoryMappingsEndpoints()`). Frontend â€” `CategoryMappingDto` type added to `types/settlements.ts`, new `api/categoriesClient.ts` (`getAll`), new `features/settlements/hooks/useCategoryMappings.ts` (load-on-mount, abort-signal, retry), `SettlementLineFields.tsx` category text input replaced with `<select>` populated from `categories` prop, `SettlementLineForm.tsx` forwards `categories`+`categoriesLoading` props, `SettlementDetailPage.tsx` imports `useCategoryMappings`, removes hardcoded `categoryRequiresMileage` function, derives `showMileageFields` from `categories.find(...).kmRequired`, shows category error+retry inline, passes `categories`+`categoriesLoading` to form; awaiting client `dotnet build` + `dotnet ef database update` + `npm run build` verification.
 
 - 2026-07-21 â€” Snapshot seed data corrected: previous session's edit had incorrectly removed `DimensionDefaults` from `OFFICE_SUPPLIES` and `GOVERNMENT_FEES` snapshot seed rows based on a misreading of the constructor argument order. Re-verification against `ReferenceData.cs` and `CategoryMappingConfiguration.HasData` confirmed all three rows have non-null `DimensionDefaults`; snapshot restored to include them. No `UpdateData` needed in the migration (database rows written by `InitialCreate` are already correct). Model/migrations/snapshot/HasData now fully consistent. Awaiting client `dotnet restore && dotnet build && dotnet ef database update && dotnet test` verification.
+- 2026-07-21 — CategoryMappingsEndpointTests.cs added (6 tests): 401 for anonymous, 200 for any authenticated role, DTO shape, seed data correctness, internal-field non-exposure; Api.Tests 88→94; total backend 224→230; no production code changed; awaiting client dotnet test + npm run build verification.
 
 # Session Start Protocol
 

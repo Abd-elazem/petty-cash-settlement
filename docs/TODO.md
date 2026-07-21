@@ -1,4 +1,4 @@
-# TODO
+﻿# TODO
 
 ## Milestone 0 — Requirements & Risk Analysis
 Status: Done. Functional/non-functional requirements, risk lists, initial stack recommendation.
@@ -140,6 +140,11 @@ Status: **CLOSED (2026-07-17). Implemented, tested, and client-verified.**
 - **VS10** — `POST /api/v1/settlements/{id}/reopen`: wraps `ReopenSettlementCommand`/Handler (Rejected → Draft, Version++). Returns 200 with updated `SettlementDto`.
 - **VS11** — `POST /api/v1/settlements/{id}/journal`: wraps `RecordJournalCommand`/Handler (Approved → Journalled, System role only). Returns 200 with updated `SettlementDto`.
 All four reuse frozen Application-layer handlers and existing endpoint/validation/error-mapping conventions (D-039/D-040/D-031/D-042). No Domain/Application/Infrastructure implementation changes were required during documentation synchronization.
+
+## CategoryMappingsEndpointTests — Test gap closure — 2026-07-21
+Status: **Complete — awaiting client verification.**
+`CategoryMappingsEndpointTests.cs` was the only code gap identified after full repository inspection (all other endpoint test files VS1-VS11 were present). Added 6 integration tests to `PettyCash.Api.Tests/Settlements/`: 401 for anonymous, 200 for Spender and Approver roles (endpoint uses `RequireAuthorization()` with no role restriction — any authenticated user may call it), correct DTO shape, all 3 seed rows verified (OFFICE_SUPPLIES/FUEL/GOVERNMENT_FEES with correct DisplayName and KmRequired), internal accounting fields absent from JSON response.
+No production code changed. Test count: Api.Tests 88→94; total backend 224→230.
 
 ## Remaining implementation work
 Scope: remaining app surface and production hardening not yet implemented in the repository (photo upload flow, admin endpoints, frontend auth integration and minimal React shell completion, production rollout hardening for SharePoint/Entra operational paths).
