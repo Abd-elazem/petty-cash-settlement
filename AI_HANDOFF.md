@@ -1,8 +1,8 @@
-﻿# AI_HANDOFF.md â€” Petty Cash Settlement System
+# AI_HANDOFF.md â€” Petty Cash Settlement System
 
 **Purpose:** This is the entry-point document for any AI session (or new developer) resuming work on this project. Read this file first, then follow the pointers below. Do not re-derive architecture from scratch â€” it already exists and is documented.
 
-_Last updated: 2026-07-21 (CategoryMappingsEndpointTests.cs added â€” snapshot seed data corrected; model/migrations/snapshot/HasData fully consistent; awaiting client dotnet build + dotnet ef database update + dotnet test verification)._
+_Last updated: 2026-07-21 (VS12 Update Settlement Header — backend + frontend + integration tests implemented; awaiting client verification)._
 Vertical Slice Roadmap
 
 âœ“ VS1 - Create Draft Settlement
@@ -202,6 +202,7 @@ Per `docs/TODO.md`, in order:
 7f. ~~Vertical Slice 6 â€” Update Settlement Line~~ **Done, closed, verified (2026-07-17)**
 7g. ~~Vertical Slice 7 â€” Remove Settlement Line~~ **Done, closed, verified (2026-07-17)**
 7h. ~~Manager + Journal Workflow Batch (VS8 Approve / VS9 Reject / VS10 Reopen / VS11 Record Journal)~~ **Done, closed, verified (2026-07-17)**
+7i. **Vertical Slice 12 — Update Settlement Header** — implemented 2026-07-21; awaiting client verification
 8. SharePoint + Entra production adapters â€” partially complete (foundation implemented; production hardening/integration rollout remains)
 9. Remaining API/UI work (photo upload flow, admin endpoints, broader workflow screens beyond implemented draft create + line add/edit/remove/submit + list/detail views, and replacing temporary frontend category inference with backend-exposed metadata) â€” partially complete after Frontend Stabilization Sprint
 10. Backlog (post-MVP): duplicate/anomaly checks, Power BI balance report, budget validation (A-006), approver delegation (A-007)
@@ -210,19 +211,27 @@ Per `docs/TODO.md`, in order:
 
 ## 7. Current Task
 
-**CategoryMappingsEndpointTests.cs implemented (2026-07-21) — awaiting client verification.**
+**Vertical Slice 12 — Update Settlement Header (2026-07-21): IMPLEMENTATION COMPLETE. Awaiting client verification.**
 
-Previous session findings confirmed: repository was ahead of documentation through VS12; the only code gap was the absence of `CategoryMappingsEndpointTests.cs`. No production code was changed.
+`PUT /api/v1/settlements/{settlementId}` — updates `SettlementDate` and `Purpose` on a Draft settlement. Reuses `Settlement.UpdateHeader()` already present in Domain (prior frozen-layer exception D-044). No Domain change this session.
 
-New test file: `tests/PettyCash.Api.Tests/Settlements/CategoryMappingsEndpointTests.cs` — 6 integration tests:
-- `Get_Anonymous_Returns401` — unauthenticated requests blocked
-- `Get_AuthenticatedAsSpender_Returns200` — default dev identity passes
-- `Get_AuthenticatedAsApprover_Returns200` — approver role passes (endpoint has no role restriction, only auth-required)
-- `Get_Returns_ListOfCategoryMappingDto` — response deserialises to correct DTO type
-- `Get_ContainsSeedRows_WithCorrectFields` — all three seed rows present with correct DisplayName and KmRequired values
-- `Get_ResponseDoesNotExposeInternalAccountingFields` — ExpenseMainAccount, DimensionDefaults, SalesTaxGroup, ItemSalesTaxGroup absent from JSON
+**Files created this session:**
+- `backend/src/PettyCash.Application/Settlements/Commands/UpdateSettlementHeaderCommand.cs` (command record + validator + handler)
+- `backend/src/PettyCash.Api/Endpoints/UpdateSettlementHeaderRequest.cs` (wire DTO)
+- `backend/tests/PettyCash.Api.Tests/Settlements/UpdateSettlementHeaderEndpointTests.cs` (6 integration tests)
+- `frontend/src/features/settlements/hooks/useUpdateSettlementHeader.ts` (mutation hook)
+- `frontend/src/features/settlements/components/EditSettlementHeaderForm.tsx` (inline edit form with client-side validation)
 
-Test counts after this session: Domain 37, Application 59, Infrastructure 40, Api 94 (was 88). Total: 230.
+**Files modified this session:**
+- `backend/src/PettyCash.Application/DependencyInjection/ApplicationServiceCollectionExtensions.cs` (registered `UpdateSettlementHeaderCommandHandler`)
+- `backend/src/PettyCash.Api/Endpoints/SettlementsEndpoints.cs` (added `MapPut("/{settlementId:guid}", UpdateHeaderAsync)` + private method)
+- `frontend/src/types/settlements.ts` (added `UpdateSettlementHeaderRequest` type)
+- `frontend/src/api/settlementsClient.ts` (added `updateHeader` method, updated import)
+- `frontend/src/pages/SettlementDetailPage.tsx` (wired `useUpdateSettlementHeader`, `isEditingHeader` state, "Edit Header" button gated on `isDraft`, `EditSettlementHeaderForm`, `handleSaveHeader`, `isUpdatingHeader` in `lineOperationPending`)
+
+**Not yet run:** `dotnet build`, `dotnet test`, `npm run build` — no execution access this session.
+
+**Note:** Migration `20260721103939_AddCategoryDisplayNameAndNullableDimensions` also pending `dotnet ef database update` client verification from a prior session.
 
 _(Update this section the moment a new task starts — see §11.)_
 
@@ -337,6 +346,7 @@ On completion of a vertical slice, update in the same turn:
 
 - 2026-07-21 â€” Snapshot seed data corrected: previous session's edit had incorrectly removed `DimensionDefaults` from `OFFICE_SUPPLIES` and `GOVERNMENT_FEES` snapshot seed rows based on a misreading of the constructor argument order. Re-verification against `ReferenceData.cs` and `CategoryMappingConfiguration.HasData` confirmed all three rows have non-null `DimensionDefaults`; snapshot restored to include them. No `UpdateData` needed in the migration (database rows written by `InitialCreate` are already correct). Model/migrations/snapshot/HasData now fully consistent. Awaiting client `dotnet restore && dotnet build && dotnet ef database update && dotnet test` verification.
 - 2026-07-21 — CategoryMappingsEndpointTests.cs added (6 tests): 401 for anonymous, 200 for any authenticated role, DTO shape, seed data correctness, internal-field non-exposure; Api.Tests 88→94; total backend 224→230; no production code changed; awaiting client dotnet test + npm run build verification.
+- 2026-07-21 — VS12 (Update Settlement Header) implemented: `UpdateSettlementHeaderCommand`/Validator/Handler (Application), DI registration, `UpdateSettlementHeaderRequest` DTO, `PUT /{settlementId:guid}` endpoint + private handler (Api), 6 integration tests (Api.Tests), `useUpdateSettlementHeader` hook, `EditSettlementHeaderForm` component, `SettlementDetailPage` integration (frontend). No Domain change — `Settlement.UpdateHeader()` already present. §4/§6/§7 updated; last-updated header updated; awaiting client `dotnet build` + `dotnet test` + `npm run build` verification.
 
 # Session Start Protocol
 

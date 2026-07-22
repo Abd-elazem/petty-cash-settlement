@@ -23,6 +23,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ICommandHandler<CreateDraftSettlementCommand, SettlementDto>, CreateDraftSettlementCommandHandler>();
         services.AddScoped<ICommandHandler<AddLineCommand, SettlementDto>, AddLineCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateLineCommand, SettlementDto>, UpdateLineCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateSettlementHeaderCommand, SettlementDto>, UpdateSettlementHeaderCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveLineCommand, SettlementDto>, RemoveLineCommandHandler>();
         services.AddScoped<ICommandHandler<SubmitSettlementCommand, SettlementDto>, SubmitSettlementCommandHandler>();
         services.AddScoped<ICommandHandler<ApproveSettlementCommand, SettlementDto>, ApproveSettlementCommandHandler>();

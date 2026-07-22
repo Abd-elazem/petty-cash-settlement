@@ -65,3 +65,7 @@ export type UpdateSettlementLineRequest = {
   odometerKm: number | null;
 };
 
+export type UpdateSettlementHeaderRequest = {
+  settlementDate: string;
+  purpose: string;
+};

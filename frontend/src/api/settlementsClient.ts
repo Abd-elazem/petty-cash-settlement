@@ -4,6 +4,7 @@ import type {
   CreateSettlementRequest,
   SettlementDto,
   SettlementSummaryDto,
+  UpdateSettlementHeaderRequest,
   UpdateSettlementLineRequest
 } from "../types/settlements";
 
@@ -15,6 +16,17 @@ type RequestOptions = {
 export const settlementsClient = {
   async createDraft(payload: CreateSettlementRequest): Promise<SettlementDto> {
     const response = await apiClient.post<SettlementDto>(BASE_PATH, payload);
+    return response.data;
+  },
+
+  async updateHeader(
+    settlementId: string,
+    payload: UpdateSettlementHeaderRequest
+  ): Promise<SettlementDto> {
+    const response = await apiClient.put<SettlementDto>(
+      `${BASE_PATH}/${settlementId}`,
+      payload
+    );
     return response.data;
   },
 

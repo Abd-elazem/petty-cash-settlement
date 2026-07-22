@@ -1,4 +1,4 @@
-using PettyCash.Domain.Common;
+﻿using PettyCash.Domain.Common;
 using PettyCash.Domain.Exceptions;
 using PettyCash.Domain.Settlements.Events;
 
@@ -6,11 +6,11 @@ namespace PettyCash.Domain.Settlements;
 
 /// <summary>
 /// Aggregate root for a petty cash settlement. Owns the header, all lines, and the
-/// state machine described in ARCHITECTURE.md §6. All mutation goes through this
-/// class — SettlementLine has no public constructor or mutators of its own.
+/// state machine described in ARCHITECTURE.md آ§6. All mutation goes through this
+/// class â€” SettlementLine has no public constructor or mutators of its own.
 ///
 /// This class deliberately knows nothing about SharePoint, Postgres, HTTP, or
-/// Power Automate. See ARCHITECTURE.md §1 — if this file ever needs a `using`
+/// Power Automate. See ARCHITECTURE.md آ§1 â€” if this file ever needs a `using`
 /// for any of those, the logic belongs in Application or Infrastructure instead.
 /// </summary>
 public sealed class Settlement : AggregateRoot<Guid>
@@ -41,8 +41,8 @@ public sealed class Settlement : AggregateRoot<Guid>
 
     // Parameterless constructor kept private for potential Infrastructure-side object
     // mapping (e.g. EF Core materialization via reflection). Infrastructure still never
-    // gets a `using PettyCash.Domain` dependency violation from this — it's the other
-    // way around — but it does mean a repository can rehydrate a Settlement without
+    // gets a `using PettyCash.Domain` dependency violation from this â€” it's the other
+    // way around â€” but it does mean a repository can rehydrate a Settlement without
     // going through CreateDraft. Rehydration always restores an already-valid state,
     // so bypassing the factory's validation here is safe.
     private Settlement()
@@ -86,6 +86,27 @@ public sealed class Settlement : AggregateRoot<Guid>
 
         settlement.Raise(new SettlementCreatedEvent(settlement.Id, DateTime.UtcNow));
         return settlement;
+    }
+
+    /// <summary>
+    /// Updates the settlement date and purpose while the settlement is still editable (Draft).
+    /// Only the two header fields the spender controls are mutable here -- identity snapshots
+    /// (SpenderName, WorkerId, ApproverEmail) are fixed at creation time and cannot be
+    /// changed after the fact (Guide SS5.2 -- IT maintains profiles, not the spender form).
+    /// Frozen-layer exception D-044: additive Domain method required because SettlementDate
+    /// and Purpose have private setters. No state machine change; no existing signature changed.
+    /// </summary>
+    public void UpdateHeader(DateOnly settlementDate, string purpose)
+    {
+        EnsureStatus(SettlementStatus.Draft, nameof(UpdateHeader));
+
+        if (string.IsNullOrWhiteSpace(purpose))
+        {
+            throw new DomainValidationException("Purpose is required.");
+        }
+
+        SettlementDate = settlementDate;
+        Purpose = purpose;
     }
 
     public SettlementLine AddLine(
@@ -173,7 +194,7 @@ public sealed class Settlement : AggregateRoot<Guid>
     }
 
     /// <summary>
-    /// Submitted → Rejected. Does NOT auto-revert to Draft — see DECISIONS.md D-014.
+    /// Submitted â†’ Rejected. Does NOT auto-revert to Draft â€” see DECISIONS.md D-014.
     /// The spender must call <see cref="ReopenForEdit"/> explicitly.
     /// </summary>
     public void Reject(string comment)
@@ -190,7 +211,7 @@ public sealed class Settlement : AggregateRoot<Guid>
         Raise(new SettlementRejectedEvent(Id, comment, DateTime.UtcNow));
     }
 
-    /// <summary>Rejected → Draft. Increments Version (A-002/A-003) so a new approval cycle is distinguishable.</summary>
+    /// <summary>Rejected â†’ Draft. Increments Version (A-002/A-003) so a new approval cycle is distinguishable.</summary>
     public void ReopenForEdit()
     {
         EnsureStatus(SettlementStatus.Rejected, nameof(ReopenForEdit));

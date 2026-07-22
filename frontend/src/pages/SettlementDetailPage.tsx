@@ -14,11 +14,16 @@ import {
 import { SettlementLineTable } from "../features/settlements/components/SettlementLineTable";
 import { SettlementMetadata } from "../features/settlements/components/SettlementMetadata";
 import { SubmitSettlementDialog } from "../features/settlements/components/SubmitSettlementDialog";
+import {
+  EditSettlementHeaderForm,
+  type EditHeaderFormValues
+} from "../features/settlements/components/EditSettlementHeaderForm";
 import { useAddSettlementLine } from "../features/settlements/hooks/useAddSettlementLine";
 import { useCategoryMappings } from "../features/settlements/hooks/useCategoryMappings";
 import { useRemoveSettlementLine } from "../features/settlements/hooks/useRemoveSettlementLine";
 import { useSettlement } from "../features/settlements/hooks/useSettlement";
 import { useSubmitSettlement } from "../features/settlements/hooks/useSubmitSettlement";
+import { useUpdateSettlementHeader } from "../features/settlements/hooks/useUpdateSettlementHeader";
 import { useUpdateSettlementLine } from "../features/settlements/hooks/useUpdateSettlementLine";
 import type { AddSettlementLineRequest, SettlementLineDto, UpdateSettlementLineRequest } from "../types/settlements";
 
@@ -77,6 +82,12 @@ export function SettlementDetailPage(): JSX.Element {
     clearApiError: clearUpdateApiError
   } = useUpdateSettlementLine();
   const {
+    updateHeader,
+    isSaving: isUpdatingHeader,
+    apiError: headerApiError,
+    clearApiError: clearHeaderApiError
+  } = useUpdateSettlementHeader();
+  const {
     removeLine,
     isRemoving,
     apiError: removeApiError,
@@ -88,6 +99,7 @@ export function SettlementDetailPage(): JSX.Element {
     apiError: submitApiError,
     clearApiError: clearSubmitApiError
   } = useSubmitSettlement();
+  const [isEditingHeader, setEditingHeader] = useState(false);
   const [lineEditorMode, setLineEditorMode] = useState<"add" | "edit" | null>(null);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [deleteTargetLine, setDeleteTargetLine] = useState<SettlementLineDto | null>(null);
@@ -104,7 +116,7 @@ export function SettlementDetailPage(): JSX.Element {
   const [lineErrors, setLineErrors] = useState<SettlementLineFormErrors>({});
   const isDraft = settlement?.status === "Draft";
   const canSubmit = Boolean(isDraft && settlement && settlement.lines.length > 0);
-  const lineOperationPending = isAddingLine || isUpdatingLine || isRemoving || isSubmitting;
+  const lineOperationPending = isAddingLine || isUpdatingLine || isUpdatingHeader || isRemoving || isSubmitting;
   const submitOperationPending = lineOperationPending || isSubmitDialogOpen;
   const activeEditorApiError = lineEditorMode === "edit" ? updateApiError : addApiError;
   const activeSubmitError = submitClientError ?? submitApiError;
@@ -174,6 +186,21 @@ export function SettlementDetailPage(): JSX.Element {
     setLineErrors({});
     clearAddApiError();
     clearUpdateApiError();
+  };
+
+  const handleSaveHeader = async (values: EditHeaderFormValues): Promise<void> => {
+    if (!requestId || !settlement) {
+      return;
+    }
+    const updated = await updateHeader(requestId, {
+      settlementDate: values.settlementDate,
+      purpose: values.purpose.trim()
+    });
+    if (updated) {
+      replaceSettlement(updated);
+      setEditingHeader(false);
+      clearHeaderApiError();
+    }
   };
 
   const resetLineForm = (): void => {
@@ -309,6 +336,40 @@ export function SettlementDetailPage(): JSX.Element {
             totalAmount={settlement.totalAmount}
             version={settlement.version}
           />
+
+          {isDraft && !isEditingHeader ? (
+            <div className="settlement-header-edit-action">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  clearHeaderApiError();
+                  setEditingHeader(true);
+                }}
+                disabled={lineOperationPending}
+              >
+                Edit Header
+              </button>
+            </div>
+          ) : null}
+
+          {isDraft && isEditingHeader ? (
+            <EditSettlementHeaderForm
+              initialValues={{
+                settlementDate: settlement.settlementDate,
+                purpose: settlement.purpose
+              }}
+              isSaving={isUpdatingHeader}
+              apiError={headerApiError}
+              onSave={handleSaveHeader}
+              onCancel={() => {
+                if (!isUpdatingHeader) {
+                  setEditingHeader(false);
+                  clearHeaderApiError();
+                }
+              }}
+            />
+          ) : null}
 
           <SettlementMetadata
             approverEmail={settlement.approverEmail}

@@ -102,6 +102,16 @@ public static class SettlementsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // VS12: PUT /settlements/{settlementId} — update header (date + purpose) of a Draft settlement.
+        group.MapPut("/{settlementId:guid}", UpdateHeaderAsync)
+            .WithName("UpdateSettlementHeader")
+            .WithSummary("Updates the date and purpose of a Draft settlement.")
+            .RequireAuthorization(EntraAuthorizationPolicies.ForRole(UserRole.Spender))
+            .Produces<SettlementDto>(StatusCodes.Status200OK)
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapDelete("/{settlementId:guid}/lines/{lineId:guid}", RemoveLineAsync)
             .WithName("RemoveSettlementLine")
             .WithSummary("Removes a line from a Draft settlement.")
@@ -447,6 +457,39 @@ public static class SettlementsEndpoints
 
         // 200 — RecordJournal transitions Approved → Journalled and stores the batch
         // number; no new resource is created (D-042).
+        return Results.Ok(dto);
+    }
+
+    // ── VS12: PUT /settlements/{id} ──────────────────────────────────────────────
+
+    private static async Task<IResult> UpdateHeaderAsync(
+        Guid settlementId,
+        UpdateSettlementHeaderRequest request,
+        ICommandHandler<UpdateSettlementHeaderCommand, SettlementDto> handler,
+        IValidator<UpdateSettlementHeaderCommand> validator,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateSettlementHeaderCommand(
+            settlementId,
+            request.SettlementDate,
+            request.Purpose);
+
+        // Same explicit-validation pattern as all other mutation endpoints (D-040).
+        // UpdateSettlementHeaderCommandValidator checks SettlementId non-empty, date
+        // non-default, and Purpose non-empty + MaximumLength(500) — same constraints
+        // as CreateDraftSettlementCommandValidator so that the create and edit paths
+        // enforce identical business rules on header fields.
+        var validationResult = await validator.ValidateAsync(command, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new AppValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+        }
+
+        SettlementDto dto = await handler.HandleAsync(command, cancellationToken);
+
+        // 200 with the updated SettlementDto — PUT on an existing resource returns
+        // the current representation, not 201 (no new resource created). Same
+        // precedent as UpdateLine (D-042).
         return Results.Ok(dto);
     }
 }
