@@ -14,6 +14,7 @@ import {
 import { SettlementLineTable } from "../features/settlements/components/SettlementLineTable";
 import { SettlementMetadata } from "../features/settlements/components/SettlementMetadata";
 import { SubmitSettlementDialog } from "../features/settlements/components/SubmitSettlementDialog";
+import { ReopenSettlementDialog } from "../features/settlements/components/ReopenSettlementDialog";
 import {
   EditSettlementHeaderForm,
   type EditHeaderFormValues
@@ -21,6 +22,7 @@ import {
 import { useAddSettlementLine } from "../features/settlements/hooks/useAddSettlementLine";
 import { useCategoryMappings } from "../features/settlements/hooks/useCategoryMappings";
 import { useRemoveSettlementLine } from "../features/settlements/hooks/useRemoveSettlementLine";
+import { useReopenSettlement } from "../features/settlements/hooks/useReopenSettlement";
 import { useSettlement } from "../features/settlements/hooks/useSettlement";
 import { useSubmitSettlement } from "../features/settlements/hooks/useSubmitSettlement";
 import { useUpdateSettlementHeader } from "../features/settlements/hooks/useUpdateSettlementHeader";
@@ -94,6 +96,12 @@ export function SettlementDetailPage(): JSX.Element {
     clearApiError: clearRemoveApiError
   } = useRemoveSettlementLine();
   const {
+    reopenSettlement,
+    isReopening,
+    apiError: reopenApiError,
+    clearApiError: clearReopenApiError
+  } = useReopenSettlement();
+  const {
     submitSettlement,
     isSubmitting,
     apiError: submitApiError,
@@ -104,6 +112,7 @@ export function SettlementDetailPage(): JSX.Element {
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [deleteTargetLine, setDeleteTargetLine] = useState<SettlementLineDto | null>(null);
   const [isSubmitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [isReopenDialogOpen, setReopenDialogOpen] = useState(false);
   const [submitClientError, setSubmitClientError] = useState<string | null>(null);
   const [lineValues, setLineValues] = useState<SettlementLineFormValues>({
     categoryCode: "",
@@ -116,7 +125,7 @@ export function SettlementDetailPage(): JSX.Element {
   const [lineErrors, setLineErrors] = useState<SettlementLineFormErrors>({});
   const isDraft = settlement?.status === "Draft";
   const canSubmit = Boolean(isDraft && settlement && settlement.lines.length > 0);
-  const lineOperationPending = isAddingLine || isUpdatingLine || isUpdatingHeader || isRemoving || isSubmitting;
+  const lineOperationPending = isAddingLine || isUpdatingLine || isUpdatingHeader || isRemoving || isSubmitting || isReopening;
   const submitOperationPending = lineOperationPending || isSubmitDialogOpen;
   const activeEditorApiError = lineEditorMode === "edit" ? updateApiError : addApiError;
   const activeSubmitError = submitClientError ?? submitApiError;
@@ -309,6 +318,18 @@ export function SettlementDetailPage(): JSX.Element {
     }
   };
 
+  const handleReopenSettlement = async (): Promise<void> => {
+    if (!requestId || lineOperationPending) {
+      return;
+    }
+    const updated = await reopenSettlement(requestId);
+    if (updated) {
+      replaceSettlement(updated);
+      setReopenDialogOpen(false);
+      clearReopenApiError();
+    }
+  };
+
   return (
     <div className="page-container">
       <button type="button" className="button-link settlement-back-link" onClick={() => navigate("/my-settlements")}>
@@ -369,6 +390,22 @@ export function SettlementDetailPage(): JSX.Element {
                 }
               }}
             />
+          ) : null}
+
+          {settlement.status === "Rejected" ? (
+            <div className="settlement-header-edit-action">
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() => {
+                  clearReopenApiError();
+                  setReopenDialogOpen(true);
+                }}
+                disabled={lineOperationPending}
+              >
+                Reopen Settlement
+              </button>
+            </div>
           ) : null}
 
           <SettlementMetadata
@@ -496,6 +533,18 @@ export function SettlementDetailPage(): JSX.Element {
             setSubmitDialogOpen(false);
             setSubmitClientError(null);
             clearSubmitApiError();
+          }
+        }}
+      />
+      <ReopenSettlementDialog
+        isOpen={isReopenDialogOpen}
+        isReopening={isReopening}
+        error={reopenApiError}
+        onConfirm={handleReopenSettlement}
+        onCancel={() => {
+          if (!isReopening) {
+            setReopenDialogOpen(false);
+            clearReopenApiError();
           }
         }}
       />

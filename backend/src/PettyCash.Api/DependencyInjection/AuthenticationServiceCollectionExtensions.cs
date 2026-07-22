@@ -35,6 +35,8 @@ public static class AuthenticationServiceCollectionExtensions
                     "Authentication:Entra:Enabled must be true outside Development.");
             }
 
+            services.AddHttpContextAccessor();
+
             services
                 .AddAuthentication(options =>
                 {

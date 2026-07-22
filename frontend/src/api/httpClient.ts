@@ -15,9 +15,13 @@ export const apiClient = axios.create({
 let isHandlingUnauthorized = false;
 
 apiClient.interceptors.request.use(async (config) => {
-  // When auth is disabled (dev mode), skip token acquisition entirely — the backend's
-  // DevelopmentAuthenticationHandler accepts requests with no Authorization header.
+  // When auth is disabled (dev mode), skip token acquisition entirely.
+  // We still send dev headers so the backend's DevelopmentCurrentUserContext
+  // can resolve the correct dev user and role (e.g., Approver for testing manager routes).
   if (!appEnv.authEnabled || !msalInstance) {
+    config.headers = config.headers ?? {};
+    config.headers["X-Dev-Role"] = appEnv.devRole;
+    config.headers["X-Dev-Username"] = appEnv.devUsername;
     return config;
   }
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using PettyCash.Application.Abstractions;
 
 namespace PettyCash.Api.Development;
@@ -10,10 +11,9 @@ namespace PettyCash.Api.Development;
 /// (the gap this class closes was deliberate and tracked, see InfrastructureServiceCollectionExtensions'
 /// own comment and D-025).
 ///
-/// Returns one fixed, hard-coded <see cref="CurrentUser"/> for every request. No claims,
-/// no headers, no per-request variation — there is no authentication pipeline yet to
-/// derive one from. This is intentionally minimal: it exists to make the container
-/// resolvable, not to simulate real identity or role behavior.
+/// Reads the X-Dev-Role and X-Dev-Username headers to allow local testing of different
+/// roles (e.g., Approver for manager inbox) without changing code. Falls back to
+/// "spender.demo" and "Spender" if headers are absent, preserving backward compatibility.
 ///
 /// Replaceable: registered behind the same <see cref="ICurrentUserContext"/> interface
 /// Application already depends on, so swapping this out later (JWT claims reader, then
@@ -22,14 +22,33 @@ namespace PettyCash.Api.Development;
 /// </summary>
 public sealed class DevelopmentCurrentUserContext : ICurrentUserContext
 {
-    // UserId must match the seeded AppUserProfile row (AppUserProfileConfiguration.cs:
-    // "spender.demo") — CreateDraftSettlementCommandHandler resolves the profile by this
-    // exact id and throws NotFoundException otherwise. Originally "dev-local-user", which
-    // does not exist in seed data and made Create Draft Settlement 404 on every local
-    // call; found and fixed during Vertical Slice 1 self-review (Api-layer dev-fixture
-    // bug only, no Domain/Application change — see CHANGELOG/DECISIONS D-038).
-    public CurrentUser Current { get; } = new(
-        UserId: "spender.demo",
-        Email: "spender.demo@canex.local",
-        Roles: new[] { UserRole.Spender });
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public DevelopmentCurrentUserContext(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    public CurrentUser Current
+    {
+        get
+        {
+            var context = _httpContextAccessor.HttpContext;
+            var roleHeader = context?.Request.Headers["X-Dev-Role"].ToString();
+            var usernameHeader = context?.Request.Headers["X-Dev-Username"].ToString();
+
+            var role = Enum.TryParse<UserRole>(roleHeader, true, out var parsedRole)
+                ? parsedRole
+                : UserRole.Spender;
+
+            var username = string.IsNullOrWhiteSpace(usernameHeader)
+                ? "spender.demo"
+                : usernameHeader;
+
+            return new CurrentUser(
+                UserId: username,
+                Email: $"{username}@canex.com",
+                Roles: new[] { role });
+        }
+    }
 }
